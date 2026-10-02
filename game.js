@@ -1,0 +1,356 @@
+'use strict';
+
+// ---------- Config ----------
+const SKILLS = ['Strategy', 'Analytics', 'Technology', 'Finance', 'Operations'];
+const FIRST = ['Alex', 'Sam', 'Priya', 'Jon', 'Mei', 'Carlos', 'Fatima', 'Liam', 'Aiko', 'Noah', 'Sofia', 'Omar', 'Greta', 'Raj', 'Elena', 'Tom'];
+const LAST = ['Smith', 'Patel', 'Garcia', 'Chen', 'Novak', 'Silva', 'Khan', 'Rossi', 'Müller', 'Okafor', 'Kim', 'Dubois', 'Ivanov'];
+const CLIENTS = ['Acme Corp', 'Globex', 'Initech', 'Umbrella Ltd', 'Hooli', 'Stark Retail', 'Wayne Logistics', 'Soylent Foods', 'Vandelay Imports', 'Pied Piper', 'Cyberdyne', 'Wonka Industries'];
+const TASKS = {
+  Strategy: ['Market entry plan', 'Growth strategy', 'Merger due diligence'],
+  Analytics: ['Customer churn study', 'Sales forecasting', 'Pricing analysis'],
+  Technology: ['Cloud migration', 'ERP rollout', 'Cybersecurity audit'],
+  Finance: ['Cost reduction review', 'Budget restructuring', 'Investor deck'],
+  Operations: ['Supply chain redesign', 'Process optimisation', 'Warehouse audit'],
+};
+const DAYS_PER_MONTH = 30;
+const DESK_COST = 6000, RENT_PER_DESK = 250;
+const MAX_OFFERS = 5, OFFER_LIFETIME = 12;
+const MAX_DESKS = 20;
+const SAVE_KEY = 'cft-save-v1';
+
+// ---------- Helpers ----------
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const money = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString();
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = id => document.getElementById(id);
+
+// ---------- State ----------
+let S;
+let openEmp = null; // employee id shown in the desk pop-up
+
+function newState() {
+  const s = {
+    day: 1, money: 15000, rep: 0, desks: 3, nextId: 1,
+    employees: [], candidates: [], offers: [], projects: [], log: [], completed: 0, failed: 0,
+  };
+  s.employees.push({ id: s.nextId++, name: 'You (Owner)', title: 'Founder', owner: true, salary: 0, assignedTo: null,
+    skills: { Strategy: 4, Analytics: 2, Technology: 1, Finance: 3, Operations: 3 } });
+  return s;
+}
+
+function logMsg(text, cls = '') {
+  S.log.unshift({ day: S.day, text, cls });
+  if (S.log.length > 80) S.log.pop();
+}
+
+// ---------- Generation ----------
+function makeCandidate() {
+  const primary = pick(SKILLS);
+  const cap = Math.min(10, 5 + Math.floor(S.rep / 12));
+  const skills = {};
+  SKILLS.forEach(s => skills[s] = 0);
+  skills[primary] = rnd(Math.max(2, cap - 4), cap);
+  for (let i = 0; i < rnd(1, 2); i++) {
+    const sec = pick(SKILLS);
+    if (sec !== primary) skills[sec] = Math.max(skills[sec], rnd(1, Math.max(2, Math.floor(skills[primary] * 0.7))));
+  }
+  const total = Object.values(skills).reduce((a, b) => a + b, 0);
+  return { id: S.nextId++, name: `${pick(FIRST)} ${pick(LAST)}`, title: `${primary} Consultant`, skills,
+    salary: Math.round((500 + total * 110 + rnd(-100, 100)) / 10) * 10, assignedTo: null };
+}
+
+function makeOffer() {
+  const nSkills = rnd(1, Math.min(3, 1 + Math.floor(S.rep / 15) + 1));
+  const chosen = [...SKILLS].sort(() => Math.random() - 0.5).slice(0, nSkills);
+  const minBase = 1 + Math.floor(S.rep / 12);
+  const reqs = chosen.map(skill => ({
+    skill, need: rnd(20, 40) + Math.floor(S.rep * 1.2), done: 0,
+    minLevel: Math.min(9, minBase + rnd(0, 2)),
+  }));
+  const points = reqs.reduce((a, r) => a + r.need, 0);
+  const days = Math.round(points / (nSkills * 4.5)) + rnd(8, 16);
+  return {
+    id: S.nextId++, client: pick(CLIENTS), title: pick(TASKS[chosen[0]]),
+    reqs, reward: Math.round(points * rnd(80, 110) / 10) * 10, duration: days, expires: S.day + OFFER_LIFETIME,
+    repGain: 2 + Math.floor(points / 50),
+  };
+}
+
+function refillOffers() {
+  while (S.offers.length < MAX_OFFERS) S.offers.push(makeOffer());
+}
+function refillCandidates() {
+  S.candidates = [];
+  for (let i = 0; i < 4; i++) S.candidates.push(makeCandidate());
+}
+
+// ---------- Actions ----------
+function acceptOffer(id) {
+  const i = S.offers.findIndex(o => o.id === id);
+  if (i < 0) return;
+  const o = S.offers.splice(i, 1)[0];
+  o.deadline = S.day + o.duration;
+  S.projects.push(o);
+  logMsg(`Accepted "${o.title}" for ${o.client}. Deadline day ${o.deadline}.`);
+  render();
+}
+
+function hire(id) {
+  const c = S.candidates.find(c => c.id === id);
+  if (!c) return;
+  if (S.employees.length >= S.desks) return alert('No free desks. Expand the office.');
+  if (S.money < c.salary) return alert('Not enough cash for the recruiting fee.');
+  S.money -= c.salary;
+  S.candidates = S.candidates.filter(x => x !== c);
+  S.employees.push(c);
+  logMsg(`Hired ${c.name} (${c.title}) for ${money(c.salary)}/month.`, 'good');
+  render();
+}
+
+function fire(id) {
+  const e = S.employees.find(e => e.id === id);
+  if (!e || e.owner || !confirm(`Fire ${e.name}?`)) return;
+  S.employees = S.employees.filter(x => x !== e);
+  logMsg(`Fired ${e.name}.`, 'warn');
+  render();
+}
+
+function train(id) {
+  const e = S.employees.find(e => e.id === id);
+  const sel = document.getElementById('train-' + id);
+  const skill = sel && sel.value;
+  if (!e || !skill) return;
+  const cost = trainCost(e, skill);
+  if (e.skills[skill] >= 10) return;
+  if (S.money < cost) return alert('Not enough cash.');
+  S.money -= cost;
+  e.skills[skill]++;
+  if (!e.owner) e.salary += 60;
+  logMsg(`${e.name} trained ${skill} to level ${e.skills[skill]} (${money(cost)}).`);
+  render();
+}
+const trainCost = (e, skill) => 400 + e.skills[skill] * 350;
+
+function assign(empId, projId) {
+  const e = S.employees.find(e => e.id === empId);
+  e.assignedTo = projId === '' ? null : Number(projId);
+  render();
+}
+
+function expandOffice() {
+  if (S.desks >= MAX_DESKS) return;
+  if (S.money < DESK_COST) return alert('Not enough cash.');
+  S.money -= DESK_COST;
+  S.desks = Math.min(MAX_DESKS, S.desks + 2);
+  logMsg(`Office expanded to ${S.desks} desks.`, 'good');
+  render();
+}
+
+function refreshCandidates() {
+  if (S.money < 300) return;
+  S.money -= 300;
+  refillCandidates();
+  render();
+}
+
+// ---------- Simulation ----------
+function tick() {
+  S.day++;
+
+  // Work
+  for (const p of S.projects) {
+    for (const e of S.employees.filter(e => e.assignedTo === p.id)) {
+      const open = p.reqs.filter(r => r.done < r.need && e.skills[r.skill] >= r.minLevel);
+      if (!open.length) continue;
+      open.sort((a, b) => e.skills[b.skill] - e.skills[a.skill]);
+      const r = open[0];
+      r.done = Math.min(r.need, r.done + e.skills[r.skill]);
+    }
+  }
+
+  // Completion / failure
+  for (const p of [...S.projects]) {
+    const finished = p.reqs.every(r => r.done >= r.need);
+    if (finished) {
+      const early = p.deadline - S.day;
+      const bonus = early > 0 ? Math.round(p.reward * Math.min(0.2, early * 0.01)) : 0;
+      S.money += p.reward + bonus;
+      S.rep += p.repGain;
+      S.completed++;
+      logMsg(`Delivered "${p.title}" to ${p.client}: +${money(p.reward + bonus)}${bonus ? ' (early bonus)' : ''}, +${p.repGain} rep.`, 'good');
+      endProject(p);
+    } else if (S.day > p.deadline) {
+      const fine = Math.round(p.reward * 0.25);
+      S.money -= fine;
+      S.rep = Math.max(0, S.rep - p.repGain);
+      S.failed++;
+      logMsg(`Missed deadline on "${p.title}" (${p.client}). Fine ${money(fine)}, -${p.repGain} rep.`, 'bad');
+      endProject(p);
+    }
+  }
+
+  // Monthly costs
+  if (S.day % DAYS_PER_MONTH === 0) {
+    const wages = S.employees.reduce((a, e) => a + e.salary, 0);
+    const rent = S.desks * RENT_PER_DESK;
+    S.money -= wages + rent;
+    logMsg(`Month end: wages ${money(wages)}, rent ${money(rent)}.`, 'warn');
+  }
+
+  // Market refresh
+  S.offers = S.offers.filter(o => o.expires > S.day);
+  if (S.day % 3 === 0) refillOffers();
+  if (S.day % 10 === 0) refillCandidates();
+
+  if (S.money < -5000) return gameOver();
+  save();
+  renderTick();
+}
+
+function endProject(p) {
+  S.projects = S.projects.filter(x => x !== p);
+  S.employees.forEach(e => { if (e.assignedTo === p.id) e.assignedTo = null; });
+}
+
+// ---------- Game loop ----------
+let speed = 1, timer = null;
+function setSpeed(n) {
+  speed = n;
+  clearInterval(timer);
+  if (n > 0) timer = setInterval(tick, 1000 / n);
+  document.querySelectorAll('[data-speed]').forEach(b => b.classList.toggle('active', Number(b.dataset.speed) === n));
+}
+
+function gameOver() {
+  setSpeed(0);
+  localStorage.removeItem(SAVE_KEY);
+  $('goText').textContent = `Your firm collapsed on day ${S.day}. Projects delivered: ${S.completed}, reputation: ${S.rep}.`;
+  $('gameover').hidden = false;
+  render();
+}
+
+// ---------- Persistence ----------
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }
+function load() {
+  try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function startNew() {
+  S = newState();
+  refillOffers();
+  refillCandidates();
+  logMsg('You founded your consulting firm. Accept a request, then assign people to it.');
+  $('gameover').hidden = true;
+  save();
+  render();
+}
+
+// ---------- Rendering ----------
+function skillTags(skills, reqs) {
+  return SKILLS.filter(s => skills[s] > 0).map(s => `<span class="tag">${s} ${skills[s]}</span>`).join('');
+}
+
+function offerCard(o) {
+  const tags = o.reqs.map(r => {
+    const have = S.employees.some(e => e.skills[r.skill] >= r.minLevel);
+    return `<span class="tag ${have ? 'ok' : 'missing'}" title="${have ? 'You have someone qualified' : 'Nobody on your team is qualified yet'}">${r.skill} ≥${r.minLevel} · ${r.need} pts</span>`;
+  }).join('');
+  return `<div class="card">
+    <div class="row"><span class="title">${esc(o.title)}</span><span class="good">${money(o.reward)}</span></div>
+    <div class="muted">${esc(o.client)} · ${o.duration} days to deliver · offer expires day ${o.expires}</div>
+    <div class="tags">${tags}</div>
+    <button class="primary" onclick="acceptOffer(${o.id})">Accept</button>
+  </div>`;
+}
+
+function projectCard(p) {
+  const left = p.deadline - S.day;
+  const team = S.employees.filter(e => e.assignedTo === p.id);
+  const reqs = p.reqs.map(r => {
+    const pct = Math.round(r.done / r.need * 100);
+    const capable = team.some(e => e.skills[r.skill] >= r.minLevel);
+    const warn = r.done < r.need && !capable ? ' <span class="bad">no qualified staff assigned</span>' : '';
+    return `<div class="req">${r.skill} (min lvl ${r.minLevel}) ${r.done}/${r.need}${warn}<div class="bar"><i style="width:${pct}%"></i></div></div>`;
+  }).join('');
+  return `<div class="card">
+    <div class="row"><span class="title">${esc(p.title)}</span><span class="good">${money(p.reward)}</span></div>
+    <div class="muted">${esc(p.client)} · <span class="${left <= 5 ? 'bad' : ''}">${Math.max(0, left)} days left</span> · team: ${team.map(e => esc(e.name)).join(', ') || 'nobody'}</div>
+    ${reqs}
+  </div>`;
+}
+
+function employeeCard(e) {
+  const projOpts = ['<option value="">Idle (bench)</option>']
+    .concat(S.projects.map(p => `<option value="${p.id}" ${e.assignedTo === p.id ? 'selected' : ''}>${esc(p.title)}</option>`)).join('');
+  const trainOpts = SKILLS.filter(s => e.skills[s] < 10)
+    .map(s => `<option value="${s}">${s} → ${e.skills[s] + 1} (${money(trainCost(e, s))})</option>`).join('');
+  return `<div class="card">
+    <div class="row"><span class="title">${esc(e.name)}</span><span class="muted">${e.owner ? 'no salary' : money(e.salary) + '/mo'}</span></div>
+    <div class="muted">${esc(e.title)}</div>
+    <div class="tags">${skillTags(e.skills)}</div>
+    <div class="row">
+      <select onchange="assign(${e.id}, this.value)">${projOpts}</select>
+      <span>
+        <select id="train-${e.id}">${trainOpts}</select>
+        <button class="small" onclick="train(${e.id})">Train</button>
+        ${e.owner ? '' : `<button class="small danger" onclick="fire(${e.id})">Fire</button>`}
+      </span>
+    </div>
+  </div>`;
+}
+
+function candidateCard(c) {
+  const full = S.employees.length >= S.desks;
+  return `<div class="card">
+    <div class="row"><span class="title">${esc(c.name)}</span><span class="muted">${money(c.salary)}/mo</span></div>
+    <div class="muted">${esc(c.title)}</div>
+    <div class="tags">${skillTags(c.skills)}</div>
+    <button class="primary" onclick="hire(${c.id})" ${full || S.money < c.salary ? 'disabled' : ''}>Hire (fee ${money(c.salary)})</button>
+  </div>`;
+}
+
+function render() {
+  $('day').textContent = S.day;
+  $('money').textContent = money(S.money);
+  $('money').className = S.money < 0 ? 'bad' : '';
+  $('rep').textContent = S.rep;
+  $('desks').textContent = `${S.employees.length}/${S.desks}`;
+  $('refreshCand').textContent = 'Refresh ($300)';
+
+  $('offers').innerHTML = S.offers.map(offerCard).join('') || '<div class="empty">No requests right now.</div>';
+  $('projects').innerHTML = S.projects.map(projectCard).join('') || '<div class="empty">No active projects. Accept a client request.</div>';
+  $('team').innerHTML = S.employees.map(employeeCard).join('');
+  $('candidates').innerHTML = S.candidates.map(candidateCard).join('') || '<div class="empty">No candidates.</div>';
+
+  const wages = S.employees.reduce((a, e) => a + e.salary, 0);
+  const next = DAYS_PER_MONTH - (S.day % DAYS_PER_MONTH);
+  $('office').innerHTML = `<div class="card">
+    <div class="muted">Monthly burn: ${money(wages + S.desks * RENT_PER_DESK)} (wages ${money(wages)} + rent ${money(S.desks * RENT_PER_DESK)}), due in ${next} days.</div>
+    <div class="muted">Delivered ${S.completed} · Failed ${S.failed}</div>
+    <button onclick="expandOffice()" ${S.money < DESK_COST || S.desks >= MAX_DESKS ? 'disabled' : ''}>${S.desks >= MAX_DESKS ? 'Office is full size' : '+2 desks (' + money(DESK_COST) + ')'}</button>
+  </div>`;
+
+  if (openEmp !== null) {
+    const e = S.employees.find(x => x.id === openEmp);
+    if (e) $('empDetail').innerHTML = employeeCard(e);
+    else if (window.closeModal) closeModal();
+  }
+  $('log').innerHTML = S.log.map(l => `<div class="${l.cls}"><span class="muted">D${l.day}</span> ${esc(l.text)}</div>`).join('');
+}
+
+// Rerendering on a timer tick would close an open <select> menu, so ticks skip it while one is focused.
+function renderTick() {
+  const a = document.activeElement;
+  if (a && a.tagName === 'SELECT') return;
+  render();
+}
+
+// ---------- Init ----------
+document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => setSpeed(Number(b.dataset.speed))));
+$('refreshCand').addEventListener('click', refreshCandidates);
+$('reset').addEventListener('click', () => { if (confirm('Discard this game and start over?')) startNew(); });
+$('goBtn').addEventListener('click', () => { startNew(); setSpeed(1); });
+
+S = load();
+if (S) { render(); } else { startNew(); }
+setSpeed(1);
