@@ -32,6 +32,7 @@ const hash = n => { let h = (n * 2654435761) >>> 0; h ^= h >>> 13; return (h * 1
 const primarySkill = e => SKILLS.reduce((a, b) => (e.skills[b] > e.skills[a] ? b : a));
 const look = e => {
   const h = hash(e.id);
+  if (e.role === 'manager') return { id: e.id, shirt: '#5c677d', tie: '#fab005', glasses: true, hair: HAIR[h % HAIR.length], skin: SKIN[(h >> 4) % SKIN.length], style: (h >> 8) % 3 };
   return { id: e.id, shirt: SKILL_COLOR[primarySkill(e)], hair: HAIR[h % HAIR.length], skin: SKIN[(h >> 4) % SKIN.length],
     style: (h >> 8) % 4, glasses: (h >> 10) % 4 === 0, tie: (h >> 12) % 3 === 0 ? '#e5484d' : null };
 };
@@ -271,6 +272,7 @@ function drawEmployees() {
   S.employees.forEach((e, i) => {
     if (e.owner || i >= S.desks) return;
     const d = deskPos(i), px = d.x * T + 24, py = (d.y + 1) * T + 14;
+    if (e.role === 'manager') { drawPerson(px, py, { ...look(e), dir: 'up', sit: true, typing: S.projects.length > 0 }); return; }
     const proj = S.projects.find(p => p.id === e.assignedTo);
     const useful = proj && proj.reqs.some(r => r.done < r.need && e.skills[r.skill] >= r.minLevel);
     drawPerson(px, py, { ...look(e), dir: 'up', sit: true, typing: !!useful });

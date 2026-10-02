@@ -60,6 +60,17 @@ function makeCandidate() {
     salary: Math.round((500 + total * 110 + rnd(-100, 100)) / 10) * 10, assignedTo: null };
 }
 
+function makeManager() {
+  const cap = Math.min(10, 5 + Math.floor(S.rep / 12));
+  const mgmt = rnd(2, Math.max(3, cap - 1));
+  const skills = {};
+  SKILLS.forEach(s => skills[s] = 0);
+  const total = rnd(1, 3);
+  skills[pick(SKILLS)] = total;
+  return { id: S.nextId++, name: `${pick(FIRST)} ${pick(LAST)}`, title: 'Manager', role: 'manager', mgmt, skills,
+    salary: Math.round((800 + mgmt * 230 + total * 60 + rnd(-100, 100)) / 10) * 10, assignedTo: null };
+}
+
 function makeOffer() {
   const nSkills = rnd(1, Math.min(3, 1 + Math.floor(S.rep / 15) + 1));
   const chosen = [...SKILLS].sort(() => Math.random() - 0.5).slice(0, nSkills);
@@ -82,7 +93,8 @@ function refillOffers() {
 }
 function refillCandidates() {
   S.candidates = [];
-  for (let i = 0; i < 4; i++) S.candidates.push(makeCandidate());
+  for (let i = 0; i < 3; i++) S.candidates.push(makeCandidate());
+  S.candidates.push(makeManager()); // always one manager on the market
 }
 
 // ---------- Actions ----------
@@ -122,19 +134,21 @@ function train(id) {
   const skill = sel && sel.value;
   if (!e || !skill) return;
   const cost = trainCost(e, skill);
-  if (e.skills[skill] >= 10) return;
+  if (skillLevel(e, skill) >= 10) return;
   if (S.money < cost) return alert('Not enough cash.');
   S.money -= cost;
-  e.skills[skill]++;
-  if (!e.owner) e.salary += 60;
-  logMsg(`${e.name} trained ${skill} to level ${e.skills[skill]} (${money(cost)}).`);
+  if (skill === 'Management') e.mgmt++; else e.skills[skill]++;
+  if (!e.owner) e.salary += skill === 'Management' ? 80 : 60;
+  logMsg(`${e.name} trained ${skill} to level ${skillLevel(e, skill)} (${money(cost)}).`);
   render();
 }
-const trainCost = (e, skill) => 400 + e.skills[skill] * 350;
+const skillLevel = (e, skill) => (skill === 'Management' ? e.mgmt : e.skills[skill]);
+const trainCost = (e, skill) => (skill === 'Management' ? 600 + e.mgmt * 400 : 400 + e.skills[skill] * 350);
 
 function assign(empId, projId) {
   const e = S.employees.find(e => e.id === empId);
   e.assignedTo = projId === '' ? null : Number(projId);
+  e.managed = false; // manual choices are never touched by managers
   render();
 }
 
@@ -155,12 +169,48 @@ function refreshCandidates() {
 }
 
 // ---------- Simulation ----------
+// ---------- Managers ----------
+const isManager = e => e.role === 'manager';
+const isWorker = e => !e.owner && !isManager(e);
+const managerCapacity = () => S.employees.filter(isManager).reduce((a, m) => a + 2 + m.mgmt, 0);
+const managedCount = () => S.employees.filter(e => e.managed && e.assignedTo !== null).length;
+const canHelp = (e, p) => !!p && p.reqs.some(r => r.done < r.need && e.skills[r.skill] >= r.minLevel);
+
+// Managers place idle staff on the project that needs them most (least slack) and where they can actually contribute.
+function autoAssign() {
+  const mgr = S.employees.find(isManager);
+  if (!mgr || !S.projects.length) return;
+  const cap = managerCapacity();
+  let used = managedCount();
+  const slack = p => (p.deadline - S.day) - projectETA(p, S.employees.filter(e => e.assignedTo === p.id));
+  const pool = S.employees.filter(e => isWorker(e) &&
+    (e.assignedTo === null || (e.managed && !canHelp(e, S.projects.find(p => p.id === e.assignedTo)))));
+  for (const e of pool) {
+    const wasManaged = e.managed && e.assignedTo !== null;
+    if (!wasManaged && used >= cap) continue;
+    let best = null, bestSlack = Infinity;
+    for (const p of S.projects) {
+      if (p.id === e.assignedTo || !canHelp(e, p)) continue;
+      const sl = slack(p);
+      if (best === null || sl < bestSlack) { best = p; bestSlack = sl; }
+    }
+    if (!best) {
+      if (wasManaged) { e.assignedTo = null; e.managed = false; used--; }
+      continue;
+    }
+    e.assignedTo = best.id; e.managed = true;
+    if (!wasManaged) used++;
+    logMsg(`${mgr.name} put ${e.name} on "${best.title}".`);
+  }
+}
+
 function tick() {
   S.day++;
+  autoAssign();
 
   // Work
   for (const p of S.projects) {
-    for (const e of S.employees.filter(e => e.assignedTo === p.id)) {
+    for (const e of S.employees.filter(e => e.assignedTo === p.id && !isManager(e))) {
       const open = p.reqs.filter(r => r.done < r.need && e.skills[r.skill] >= r.minLevel);
       if (!open.length) continue;
       open.sort((a, b) => e.skills[b.skill] - e.skills[a.skill]);
@@ -210,7 +260,7 @@ function tick() {
 
 function endProject(p) {
   S.projects = S.projects.filter(x => x !== p);
-  S.employees.forEach(e => { if (e.assignedTo === p.id) e.assignedTo = null; });
+  S.employees.forEach(e => { if (e.assignedTo === p.id) { e.assignedTo = null; e.managed = false; } });
 }
 
 // ---------- Game loop ----------
@@ -246,8 +296,12 @@ function startNew() {
 }
 
 // ---------- Rendering ----------
-function skillTags(skills, reqs) {
+function skillTags(skills) {
   return SKILLS.filter(s => skills[s] > 0).map(s => `<span class="tag">${s} ${skills[s]}</span>`).join('');
+}
+function personTags(e) {
+  const m = isManager(e) ? `<span class="tag ok" title="Assigns idle staff to projects">Management ${e.mgmt} · handles ${2 + e.mgmt} staff</span>` : '';
+  return m + skillTags(e.skills);
 }
 
 function offerCard(o) {
@@ -307,16 +361,20 @@ function projectCard(p) {
 }
 
 function employeeCard(e) {
+  const mgr = isManager(e);
   const projOpts = ['<option value="">Idle (bench)</option>']
     .concat(S.projects.map(p => `<option value="${p.id}" ${e.assignedTo === p.id ? 'selected' : ''}>${esc(p.title)}</option>`)).join('');
-  const trainOpts = SKILLS.filter(s => e.skills[s] < 10)
-    .map(s => `<option value="${s}">${s} → ${e.skills[s] + 1} (${money(trainCost(e, s))})</option>`).join('');
+  const trainSkills = (mgr ? ['Management'] : []).concat(SKILLS);
+  const trainOpts = trainSkills.filter(s => skillLevel(e, s) < 10)
+    .map(s => `<option value="${s}">${s} → ${skillLevel(e, s) + 1} (${money(trainCost(e, s))})</option>`).join('');
+  const status = mgr ? `<span class="muted">Managing ${managedCount()}/${managerCapacity()} staff (all managers combined)</span>`
+    : `<select onchange="assign(${e.id}, this.value)">${projOpts}</select>${e.managed ? ' <span class="tag ok">managed</span>' : ''}`;
   return `<div class="card">
     <div class="row"><span class="title">${esc(e.name)}</span><span class="muted">${e.owner ? 'no salary' : money(e.salary) + '/mo'}</span></div>
     <div class="muted">${esc(e.title)}</div>
-    <div class="tags">${skillTags(e.skills)}</div>
+    <div class="tags">${personTags(e)}</div>
     <div class="row">
-      <select onchange="assign(${e.id}, this.value)">${projOpts}</select>
+      <span>${status}</span>
       <span>
         <select id="train-${e.id}">${trainOpts}</select>
         <button class="small" onclick="train(${e.id})">Train</button>
@@ -331,7 +389,7 @@ function candidateCard(c) {
   return `<div class="card">
     <div class="row"><span class="title">${esc(c.name)}</span><span class="muted">${money(c.salary)}/mo</span></div>
     <div class="muted">${esc(c.title)}</div>
-    <div class="tags">${skillTags(c.skills)}</div>
+    <div class="tags">${personTags(c)}</div>
     <button class="primary" onclick="hire(${c.id})" ${full || S.money < c.salary ? 'disabled' : ''}>Hire (fee ${money(c.salary)})</button>
   </div>`;
 }
