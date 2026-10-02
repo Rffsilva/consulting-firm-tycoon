@@ -218,7 +218,7 @@ let speed = 1, timer = null;
 function setSpeed(n) {
   speed = n;
   clearInterval(timer);
-  if (n > 0) timer = setInterval(tick, 1000 / n);
+  if (n > 0) timer = setInterval(tick, 3000 / n);
   document.querySelectorAll('[data-speed]').forEach(b => b.classList.toggle('active', Number(b.dataset.speed) === n));
 }
 
@@ -263,9 +263,34 @@ function offerCard(o) {
   </div>`;
 }
 
+// Projected days to finish, using the same allocation rule as tick(): each person works the open requirement they are best at.
+function projectETA(p, team) {
+  const rate = new Map();
+  for (const e of team) {
+    const open = p.reqs.filter(r => r.done < r.need && e.skills[r.skill] >= r.minLevel);
+    if (!open.length) continue;
+    const r = open.reduce((a, b) => (e.skills[b.skill] > e.skills[a.skill] ? b : a));
+    rate.set(r, (rate.get(r) || 0) + e.skills[r.skill]);
+  }
+  let eta = 0;
+  for (const r of p.reqs) {
+    if (r.done >= r.need) continue;
+    const per = rate.get(r) || 0;
+    if (!per) return Infinity;
+    eta = Math.max(eta, Math.ceil((r.need - r.done) / per));
+  }
+  return eta;
+}
+
 function projectCard(p) {
   const left = p.deadline - S.day;
   const team = S.employees.filter(e => e.assignedTo === p.id);
+  const done = p.reqs.reduce((a, r) => a + r.done, 0), need = p.reqs.reduce((a, r) => a + r.need, 0);
+  const overall = Math.round(done / need * 100);
+  const eta = projectETA(p, team);
+  const status = eta === Infinity ? '<span class="bad">Stalled</span>'
+    : eta <= left ? `<span class="good">On track · ~${eta}d to finish</span>`
+    : `<span class="warn">At risk · ~${eta}d to finish</span>`;
   const reqs = p.reqs.map(r => {
     const pct = Math.round(r.done / r.need * 100);
     const capable = team.some(e => e.skills[r.skill] >= r.minLevel);
@@ -274,7 +299,9 @@ function projectCard(p) {
   }).join('');
   return `<div class="card">
     <div class="row"><span class="title">${esc(p.title)}</span><span class="good">${money(p.reward)}</span></div>
-    <div class="muted">${esc(p.client)} · <span class="${left <= 5 ? 'bad' : ''}">${Math.max(0, left)} days left</span> · team: ${team.map(e => esc(e.name)).join(', ') || 'nobody'}</div>
+    <div class="muted">${esc(p.client)} · <span class="${left <= 5 ? 'bad' : ''}">${Math.max(0, left)} days left</span> · ${status}</div>
+    <div class="bar big"><i style="width:${overall}%"></i></div>
+    <div class="muted">Overall ${overall}% · team: ${team.map(e => esc(e.name)).join(', ') || 'nobody'}</div>
     ${reqs}
   </div>`;
 }
@@ -318,7 +345,9 @@ function render() {
   $('refreshCand').textContent = 'Refresh ($300)';
 
   $('offers').innerHTML = S.offers.map(offerCard).join('') || '<div class="empty">No requests right now.</div>';
-  $('projects').innerHTML = S.projects.map(projectCard).join('') || '<div class="empty">No active projects. Accept a client request.</div>';
+  const projHtml = S.projects.map(projectCard).join('') || '<div class="empty">No active projects. Accept a client request.</div>';
+  $('projects').innerHTML = projHtml;
+  $('sideProjects').innerHTML = projHtml;
   $('team').innerHTML = S.employees.map(employeeCard).join('');
   $('candidates').innerHTML = S.candidates.map(candidateCard).join('') || '<div class="empty">No candidates.</div>';
 
