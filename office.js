@@ -40,6 +40,20 @@ const look = e => {
     style: (h >> 8) % 4, glasses: (h >> 10) % 4 === 0, tie: (h >> 12) % 3 === 0 ? '#e5484d' : null };
 };
 
+// ---------- Scaling ----------
+// The canvas keeps its 480x320 pixel grid; CSS size is the largest 3:2 box that fits the available area.
+const view = document.getElementById('view'), screenEl = document.getElementById('screen');
+function fitScreen() {
+  const w = view.clientWidth, h = view.clientHeight;
+  if (!w || !h) return;
+  const s = Math.min(w / (MAP_W * T), h / (MAP_H * T));
+  screenEl.style.width = Math.floor(MAP_W * T * s) + 'px';
+  screenEl.style.height = Math.floor(MAP_H * T * s) + 'px';
+}
+new ResizeObserver(fitScreen).observe(view);
+addEventListener('resize', fitScreen);
+fitScreen();
+
 // ---------- Collision ----------
 function solid(tx, ty) {
   if (tx < 1 || tx >= MAP_W - 1 || ty < 2 || ty >= MAP_H - 1) return true;
@@ -98,7 +112,9 @@ function updateNearest() {
 }
 
 // ---------- Modal ----------
+let resumeSpeed = null; // game speed to restore when the window closes
 function openPanel(name) {
+  if (resumeSpeed === null) { resumeSpeed = speed; setSpeed(0); } // menus pause the game
   modalOpen = true;
   for (const k in keys) keys[k] = false;
   document.querySelectorAll('#modal section').forEach(s => { s.hidden = s.dataset.panel !== name; });
@@ -108,6 +124,7 @@ function openPanel(name) {
 function openEmployee(id) { openEmp = id; openPanel('employee'); }
 function closeModal() {
   modalOpen = false; openEmp = null;
+  if (resumeSpeed !== null) { setSpeed(resumeSpeed); resumeSpeed = null; }
   document.getElementById('modal').hidden = true;
 }
 document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openPanel(b.dataset.open)));

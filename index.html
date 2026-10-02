@@ -36,10 +36,12 @@
 <div id="stage">
   <div id="layout">
     <div id="view">
-      <canvas id="c" width="480" height="320"></canvas>
-      <div id="prompt" hidden></div>
+      <div id="screen">
+        <canvas id="c" width="480" height="320"></canvas>
+        <div id="prompt" hidden></div>
+      </div>
     </div>
-    <aside id="side"><h2>Active Projects</h2><div id="sideProjects" class="list"></div></aside>
+    <aside id="side"><h2>You</h2><div id="you" class="list"></div><h2>Active Projects</h2><div id="sideProjects" class="list"></div></aside>
   </div>
   <div id="help">WASD / arrows: walk · E: interact · Esc: close window</div>
   <div id="log"></div>
@@ -48,6 +50,7 @@
 <div id="modal" hidden>
   <div class="mbox">
     <button id="mclose" title="Close (Esc)">✕</button>
+    <div class="muted paused">⏸ Game paused while this window is open</div>
     <section data-panel="requests"><h2>Client Requests</h2><div id="offers" class="list"></div></section>
     <section data-panel="projects"><h2>Active Projects</h2><div id="projects" class="list"></div></section>
     <section data-panel="team"><h2>Your Team</h2><div id="team" class="list"></div></section>

@@ -137,8 +137,9 @@ function fire(id) {
   render();
 }
 
-function train(id) {
-  const sel = document.getElementById('train-' + id);
+// The same card can exist in several windows, so read the select that sits next to the clicked button (ids would clash).
+function train(id, btn) {
+  const sel = btn.parentElement.querySelector('select');
   if (sel && sel.value) trainSkill(id, sel.value);
 }
 function trainSkill(id, skill) {
@@ -412,8 +413,8 @@ function employeeCard(e) {
     <div class="row">
       <span>${status}</span>
       <span>
-        <select id="train-${e.id}">${trainOpts}</select>
-        <button class="small" onclick="train(${e.id})">Train</button>
+        <select class="train-select">${trainOpts}</select>
+        <button class="small" onclick="train(${e.id}, this)">Train</button>
         ${e.owner ? '' : `<button class="small danger" onclick="fire(${e.id})">Fire</button>`}
       </span>
     </div>
@@ -427,6 +428,31 @@ function candidateCard(c) {
     <div class="muted">${esc(c.title)}</div>
     <div class="tags">${personTags(c)}</div>
     <button class="primary" onclick="hire(${c.id})" ${full || S.money < c.salary ? 'disabled' : ''}>Hire (fee ${money(c.salary)})</button>
+  </div>`;
+}
+
+// Always-visible card for assigning the owner to a project.
+function renderYou() {
+  const me = S.employees.find(e => e.owner);
+  if (!me) return;
+  const cur = S.projects.find(p => p.id === me.assignedTo);
+  const best = p => {
+    const open = p.reqs.filter(r => r.done < r.need && me.skills[r.skill] >= r.minLevel);
+    return open.length ? open.reduce((a, b) => (me.skills[b.skill] > me.skills[a.skill] ? b : a)) : null;
+  };
+  const opts = ['<option value="">Not working on a project</option>'].concat(S.projects.map(p => {
+    const r = best(p);
+    return `<option value="${p.id}" ${me.assignedTo === p.id ? 'selected' : ''} ${r || me.assignedTo === p.id ? '' : 'disabled'}>${esc(p.title)} ${r ? `(${r.skill} ${me.skills[r.skill]})` : "(you can't help)"}</option>`;
+  })).join('');
+  const r = cur && best(cur);
+  const status = !cur ? '<span class="muted">You are free. Pick a project to pitch in.</span>'
+    : r ? `<span class="good">Contributing ${me.skills[r.skill]} ${r.skill} points a day to "${esc(cur.title)}".</span>`
+      : `<span class="warn">Nothing left on "${esc(cur.title)}" that you can do.</span>`;
+  $('you').innerHTML = `<div class="card">
+    <div class="title">Your job</div>
+    <div class="tags">${skillTags(me.skills)}</div>
+    <div class="row"><select id="youSelect" onchange="assign(${me.id}, this.value)">${opts}</select></div>
+    <div>${status}</div>
   </div>`;
 }
 
@@ -470,6 +496,7 @@ function render() {
     <button onclick="expandOffice()" ${S.money < DESK_COST || S.desks >= MAX_DESKS ? 'disabled' : ''}>${S.desks >= MAX_DESKS ? 'Office is full size' : '+2 desks (' + money(DESK_COST) + ')'}</button>
   </div>`;
 
+  renderYou();
   renderStrategy();
   renderHR();
   if (openEmp !== null) {
