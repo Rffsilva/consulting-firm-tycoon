@@ -64,3 +64,5 @@ canvas { display: block; width: 100%; aspect-ratio: 3 / 2; image-rendering: pixe
 #side { max-height: calc(100vh - 170px); overflow-y: auto; }
 #side h2 { margin-top: 0; }
 .bar.big { height: 10px; margin: 6px 0 2px; }
+button.strat { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 10px 12px; }
+button.strat.active { border-color: var(--accent); background: #26354d; }

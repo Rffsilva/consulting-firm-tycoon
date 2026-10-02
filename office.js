@@ -14,7 +14,8 @@ ctx.imageSmoothingEnabled = false;
 // Fixed furniture: rectangles in tile coordinates that block walking.
 const STATIC_BLOCKS = [
   [24, 6, 4, 2],   // recruiting desk + recruiter
-  [24, 14, 4, 2],  // facilities blueprint table
+  [24, 16, 4, 2],  // facilities blueprint table
+  [24, 13, 4, 2],  // boardroom table
   [28, 2, 1, 1],   // coffee machine
   [1, 18, 1, 1], [21, 18, 1, 1], [28, 18, 1, 1], [23, 3, 1, 1], [28, 10, 1, 1], // plants
 ];
@@ -24,7 +25,8 @@ const STATIONS = [
   { id: 'requests', label: 'Client requests board', x: 25 * T + 8, y: 2 * T + 8 },
   { id: 'projects', label: 'Project whiteboard', x: 21 * T + 8, y: 2 * T + 8 },
   { id: 'hiring', label: 'Recruiting desk', x: 26 * T, y: 8 * T + 8 },
-  { id: 'office', label: 'Facilities (expand the office)', x: 26 * T, y: 16 * T + 8 },
+  { id: 'strategy', label: 'Boardroom (company strategy)', x: 26 * T, y: 15 * T + 8 },
+  { id: 'office', label: 'Facilities (expand the office)', x: 26 * T, y: 18 * T + 8 },
 ];
 
 const deskPos = i => ({ x: DESK_COLS[i % 5], y: DESK_ROWS[Math.floor(i / 5)] });
@@ -293,7 +295,15 @@ function drawStationsFront() {
   if (S.candidates.length) badge(x + 62, y - 1, S.candidates.length);
   S.candidates.forEach((c, i) => drawPerson((24 + i) * T + 8, 10 * T + 14, { ...look(c), dir: 'down' }));
   // facilities table with blueprints and a hard hat
-  const fx = 24 * T, fy = 14 * T;
+  // boardroom table with a strategy chart and chairs
+  const bx = 24 * T, by = 13 * T;
+  R(bx + 2, by + 30, 4 * T - 2, 3, 'rgba(43,33,64,.2)');
+  for (const cx of [10, 26, 42]) { ob(bx + cx, by - 1, 12, 5, '#2fb5a8'); ob(bx + cx, by + 28, 12, 4, '#2fb5a8'); }
+  ob(bx, by + 4, 4 * T, 24, '#8a5a3a'); R(bx + 2, by + 6, 4 * T - 4, 20, '#a9724a'); R(bx + 2, by + 6, 4 * T - 4, 1, '#c8915f');
+  ob(bx + 20, by + 10, 24, 12, '#fff'); R(bx + 23, by + 18, 3, 3, '#ff6b6b'); R(bx + 28, by + 15, 3, 6, '#ffa94d'); R(bx + 33, by + 12, 3, 9, '#51cf66'); R(bx + 38, by + 14, 3, 7, '#4dabf7');
+  ob(bx + 8, by - 8, 48, 8, '#ffd8a8'); text('BOARDROOM', bx + 32, by - 7, OL, 'center', true);
+  // facilities table with blueprints and a hard hat
+  const fx = 24 * T, fy = 16 * T;
   R(fx + 2, fy + 30, 4 * T - 2, 3, 'rgba(43,33,64,.2)');
   ob(fx, fy + 4, 4 * T, 26, '#6b8fc9'); R(fx + 2, fy + 6, 4 * T - 4, 22, '#2f5aa8');
   for (let i = 0; i < 4; i++) { R(fx + 6 + i * 14, fy + 10, 8, 1, '#a5c8ff'); R(fx + 6 + i * 14, fy + 18, 8, 1, '#a5c8ff'); R(fx + 10 + i * 14, fy + 10, 1, 9, '#a5c8ff'); }

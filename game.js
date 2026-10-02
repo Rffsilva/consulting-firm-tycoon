@@ -176,28 +176,52 @@ const managerCapacity = () => S.employees.filter(isManager).reduce((a, m) => a +
 const managedCount = () => S.employees.filter(e => e.managed && e.assignedTo !== null).length;
 const canHelp = (e, p) => !!p && p.reqs.some(r => r.done < r.need && e.skills[r.skill] >= r.minLevel);
 
-// Managers place idle staff on the project that needs them most (least slack) and where they can actually contribute.
+const STRATEGIES = {
+  deadline: { name: 'Protect deadlines', desc: 'Help the project closest to missing its deadline first. Fewest failures, but big payouts may wait.' },
+  revenue: { name: 'Maximise revenue', desc: 'Put people on the highest-paying project first. Cheaper projects can slip past their deadline.' },
+  fifo: { name: 'First come, first served', desc: 'Finish projects in the order you accepted them.' },
+};
+function setStrategy(id) {
+  S.strategy = id;
+  logMsg(`Company strategy set to "${STRATEGIES[id].name}".`);
+  save(); render();
+}
+
+// Managers place idle staff on the project the company strategy ranks first, among those where the person can contribute.
 function autoAssign() {
   const mgr = S.employees.find(isManager);
   if (!mgr || !S.projects.length) return;
+  const strat = S.strategy || 'deadline';
   const cap = managerCapacity();
   let used = managedCount();
-  const slack = p => (p.deadline - S.day) - projectETA(p, S.employees.filter(e => e.assignedTo === p.id));
-  const pool = S.employees.filter(e => isWorker(e) &&
-    (e.assignedTo === null || (e.managed && !canHelp(e, S.projects.find(p => p.id === e.assignedTo)))));
-  for (const e of pool) {
-    const wasManaged = e.managed && e.assignedTo !== null;
+  // Days of margin before the deadline. A project nobody is working on is estimated as if `e` alone took it on.
+  const slack = (p, e) => {
+    let eta = projectETA(p, S.employees.filter(x => x.assignedTo === p.id));
+    if (eta === Infinity) {
+      const rate = Math.max(1, ...p.reqs.filter(r => r.done < r.need && e.skills[r.skill] >= r.minLevel).map(r => e.skills[r.skill]));
+      eta = Math.ceil(p.reqs.reduce((a, r) => a + r.need - r.done, 0) / rate);
+    }
+    return (p.deadline - S.day) - eta;
+  };
+  const cmp = (a, b) => (a === b ? 0 : a < b ? -1 : 1);
+  const ranked = e => {
+    const list = [...S.projects]; // already in the order they were accepted
+    if (strat === 'revenue') list.sort((a, b) => b.reward - a.reward || cmp(slack(a, e), slack(b, e)));
+    else if (strat === 'deadline') list.sort((a, b) => cmp(slack(a, e), slack(b, e)));
+    return list;
+  };
+  for (const e of S.employees.filter(isWorker)) {
+    const cur = S.projects.find(p => p.id === e.assignedTo);
+    const wasManaged = !!(e.managed && cur);
+    if (e.assignedTo !== null && !wasManaged) continue; // manual assignment
     if (!wasManaged && used >= cap) continue;
-    let best = null, bestSlack = Infinity;
-    for (const p of S.projects) {
-      if (p.id === e.assignedTo || !canHelp(e, p)) continue;
-      const sl = slack(p);
-      if (best === null || sl < bestSlack) { best = p; bestSlack = sl; }
-    }
-    if (!best) {
-      if (wasManaged) { e.assignedTo = null; e.managed = false; used--; }
-      continue;
-    }
+    const best = ranked(e).find(p => canHelp(e, p));
+    if (wasManaged) {
+      if (!best) { e.assignedTo = null; e.managed = false; used--; continue; }
+      if (best.id === cur.id) continue;
+      // Moving a busy person: always for stable rankings; for deadlines only to rescue a project that is already late.
+      if (canHelp(e, cur) && strat === 'deadline' && !(slack(best, e) < 0 && slack(cur, e) > 2)) continue;
+    } else if (!best) continue;
     e.assignedTo = best.id; e.managed = true;
     if (!wasManaged) used++;
     logMsg(`${mgr.name} put ${e.name} on "${best.title}".`);
@@ -394,6 +418,23 @@ function candidateCard(c) {
   </div>`;
 }
 
+function renderStrategy() {
+  const cur = S.strategy || 'deadline';
+  const mgrs = S.employees.filter(isManager);
+  const options = Object.entries(STRATEGIES).map(([id, st]) => `<button class="strat ${id === cur ? 'active' : ''}" onclick="setStrategy('${id}')">
+    <b>${st.name}</b><span class="muted">${st.desc}</span></button>`).join('');
+  const crew = S.employees.filter(e => e.managed && e.assignedTo !== null).map(e => {
+    const p = S.projects.find(p => p.id === e.assignedTo);
+    return p ? `<div class="muted">${esc(e.name)} → ${esc(p.title)}</div>` : '';
+  }).join('');
+  const team = mgrs.length
+    ? `<div class="card"><div class="title">Management team</div>
+        ${mgrs.map(m => `<div class="muted">${esc(m.name)} · Management ${m.mgmt}</div>`).join('')}
+        <div class="muted">Managing ${managedCount()}/${managerCapacity()} staff</div>${crew}</div>`
+    : '<div class="empty">No managers yet. Hire one from the recruiting desk so the strategy can be carried out.</div>';
+  $('strategy').innerHTML = options + team;
+}
+
 function render() {
   $('day').textContent = S.day;
   $('money').textContent = money(S.money);
@@ -417,6 +458,7 @@ function render() {
     <button onclick="expandOffice()" ${S.money < DESK_COST || S.desks >= MAX_DESKS ? 'disabled' : ''}>${S.desks >= MAX_DESKS ? 'Office is full size' : '+2 desks (' + money(DESK_COST) + ')'}</button>
   </div>`;
 
+  renderStrategy();
   if (openEmp !== null) {
     const e = S.employees.find(x => x.id === openEmp);
     if (e) $('empDetail').innerHTML = employeeCard(e);
