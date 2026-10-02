@@ -71,6 +71,14 @@ function makeManager() {
     salary: Math.round((800 + mgmt * 230 + total * 60 + rnd(-100, 100)) / 10) * 10, assignedTo: null };
 }
 
+function makeHR() {
+  const skills = {};
+  SKILLS.forEach(s => skills[s] = 0);
+  skills[pick(SKILLS)] = rnd(1, 3);
+  return { id: S.nextId++, name: `${pick(FIRST)} ${pick(LAST)}`, title: 'HR Specialist', role: 'hr', skills,
+    salary: Math.round((1000 + rnd(0, 300)) / 10) * 10, assignedTo: null };
+}
+
 function makeOffer() {
   const nSkills = rnd(1, Math.min(3, 1 + Math.floor(S.rep / 15) + 1));
   const chosen = [...SKILLS].sort(() => Math.random() - 0.5).slice(0, nSkills);
@@ -95,6 +103,7 @@ function refillCandidates() {
   S.candidates = [];
   for (let i = 0; i < 3; i++) S.candidates.push(makeCandidate());
   S.candidates.push(makeManager()); // always one manager on the market
+  if (!S.employees.some(isHR)) S.candidates[0] = makeHR(); // and one HR specialist until you have one
 }
 
 // ---------- Actions ----------
@@ -129,9 +138,11 @@ function fire(id) {
 }
 
 function train(id) {
-  const e = S.employees.find(e => e.id === id);
   const sel = document.getElementById('train-' + id);
-  const skill = sel && sel.value;
+  if (sel && sel.value) trainSkill(id, sel.value);
+}
+function trainSkill(id, skill) {
+  const e = S.employees.find(e => e.id === id);
   if (!e || !skill) return;
   const cost = trainCost(e, skill);
   if (skillLevel(e, skill) >= 10) return;
@@ -171,7 +182,7 @@ function refreshCandidates() {
 // ---------- Simulation ----------
 // ---------- Managers ----------
 const isManager = e => e.role === 'manager';
-const isWorker = e => !e.owner && !isManager(e);
+const isWorker = e => !e.owner && !isManager(e) && !isHR(e);
 const managerCapacity = () => S.employees.filter(isManager).reduce((a, m) => a + 2 + m.mgmt, 0);
 const managedCount = () => S.employees.filter(e => e.managed && e.assignedTo !== null).length;
 const canHelp = (e, p) => !!p && p.reqs.some(r => r.done < r.need && e.skills[r.skill] >= r.minLevel);
@@ -234,7 +245,7 @@ function tick() {
 
   // Work
   for (const p of S.projects) {
-    for (const e of S.employees.filter(e => e.assignedTo === p.id && !isManager(e))) {
+    for (const e of S.employees.filter(e => e.assignedTo === p.id && !isManager(e) && !isHR(e))) {
       const open = p.reqs.filter(r => r.done < r.need && e.skills[r.skill] >= r.minLevel);
       if (!open.length) continue;
       open.sort((a, b) => e.skills[b.skill] - e.skills[a.skill]);
@@ -325,7 +336,8 @@ function skillTags(skills) {
 }
 function personTags(e) {
   const m = isManager(e) ? `<span class="tag ok" title="Assigns idle staff to projects">Management ${e.mgmt} · handles ${2 + e.mgmt} staff</span>` : '';
-  return m + skillTags(e.skills);
+  const h = isHR(e) ? '<span class="tag ok" title="Recommends who to hire or train">HR · advises on hiring and training</span>' : '';
+  return m + h + skillTags(e.skills);
 }
 
 function offerCard(o) {
@@ -391,7 +403,7 @@ function employeeCard(e) {
   const trainSkills = (mgr ? ['Management'] : []).concat(SKILLS);
   const trainOpts = trainSkills.filter(s => skillLevel(e, s) < 10)
     .map(s => `<option value="${s}">${s} → ${skillLevel(e, s) + 1} (${money(trainCost(e, s))})</option>`).join('');
-  const status = mgr ? `<span class="muted">Managing ${managedCount()}/${managerCapacity()} staff (all managers combined)</span>`
+  const status = isHR(e) ? `<span class="muted">Reviewing the company (see the HR window)</span>` : mgr ? `<span class="muted">Managing ${managedCount()}/${managerCapacity()} staff (all managers combined)</span>`
     : `<select onchange="assign(${e.id}, this.value)">${projOpts}</select>${e.managed ? ' <span class="tag ok">managed</span>' : ''}`;
   return `<div class="card">
     <div class="row"><span class="title">${esc(e.name)}</span><span class="muted">${e.owner ? 'no salary' : money(e.salary) + '/mo'}</span></div>
@@ -459,6 +471,7 @@ function render() {
   </div>`;
 
   renderStrategy();
+  renderHR();
   if (openEmp !== null) {
     const e = S.employees.find(x => x.id === openEmp);
     if (e) $('empDetail').innerHTML = employeeCard(e);
