@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Consulting Firm Tycoon</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/windows.css">
 </head>
 <body>
 <header>
@@ -15,6 +17,7 @@
     <span>Reputation <b id="rep">0</b></span>
     <span>Desks <b id="desks">0/0</b></span>
   </div>
+  <!-- data-open="x" opens the window <section data-panel="x"> below -->
   <nav>
     <button data-open="requests">Requests</button>
     <button data-open="projects">Projects</button>
@@ -29,7 +32,7 @@
     <button data-speed="1">1×</button>
     <button data-speed="2">2×</button>
     <button data-speed="4">4×</button>
-    <button id="reset" class="danger">New game</button>
+    <button class="danger" data-action="new-game">New game</button>
   </div>
 </header>
 
@@ -41,12 +44,16 @@
         <div id="prompt" hidden></div>
       </div>
     </div>
-    <aside id="side"><h2>You</h2><div id="you" class="list"></div><h2>Active Projects</h2><div id="sideProjects" class="list"></div></aside>
+    <aside id="side">
+      <h2>You</h2><div id="you" class="list"></div>
+      <h2>Active Projects</h2><div id="sideProjects" class="list"></div>
+    </aside>
   </div>
-  <div id="help">WASD / arrows: walk · E: interact · Esc: close window</div>
+  <div id="help"></div>
   <div id="log"></div>
 </div>
 
+<!-- Pop-up windows. Each section is filled in by js/ui/panels/<name>.js -->
 <div id="modal" hidden>
   <div class="mbox">
     <button id="mclose" title="Close (Esc)">✕</button>
@@ -55,7 +62,7 @@
     <section data-panel="projects"><h2>Active Projects</h2><div id="projects" class="list"></div></section>
     <section data-panel="team"><h2>Your Team</h2><div id="team" class="list"></div></section>
     <section data-panel="employee"><h2>Employee</h2><div id="empDetail" class="list"></div></section>
-    <section data-panel="hiring"><h2>Candidates <button id="refreshCand" class="small"></button></h2><div id="candidates" class="list"></div></section>
+    <section data-panel="hiring"><h2>Candidates <button id="refreshCand" class="small" data-action="refresh-candidates"></button></h2><div id="candidates" class="list"></div></section>
     <section data-panel="hr"><h2>HR Advisor</h2><div id="hr" class="list"></div></section>
     <section data-panel="strategy"><h2>Company Strategy</h2><p class="muted">How your managers decide who works on what.</p><div id="strategy" class="list"></div></section>
     <section data-panel="office"><h2>Office</h2><div id="office" class="list"></div></section>
@@ -63,10 +70,59 @@
 </div>
 
 <div id="gameover" hidden>
-  <div class="modal"><h2>Bankrupt!</h2><p id="goText"></p><button id="goBtn">Start over</button></div>
+  <div class="modal"><h2>Bankrupt!</h2><p id="goText"></p><button data-action="restart">Start over</button></div>
 </div>
-<script src="hr.js"></script>
-<script src="game.js"></script>
-<script src="office.js"></script>
+
+<!--
+  Plain scripts, loaded in dependency order: each file may only use what the files above it registered on window.CFT.
+  See docs/ARCHITECTURE.md.
+-->
+<script src="js/namespace.js"></script>
+
+<!-- Core: settings, data, helpers, the game state -->
+<script src="js/core/config.js"></script>
+<script src="js/core/content.js"></script>
+<script src="js/core/palette.js"></script>
+<script src="js/core/util.js"></script>
+<script src="js/core/store.js"></script>
+
+<!-- Game rules (no page code) -->
+<script src="js/sim/projects.js"></script>
+<script src="js/employees/staff.js"></script>
+<script src="js/employees/owner.js"></script>
+<script src="js/employees/consultant.js"></script>
+<script src="js/employees/manager.js"></script>
+<script src="js/employees/hr.js"></script>
+<script src="js/sim/company.js"></script>
+<script src="js/sim/simulation.js"></script>
+
+<!-- Windows and side panel -->
+<script src="js/ui/components.js"></script>
+<script src="js/ui/clock.js"></script>
+<script src="js/ui/windows.js"></script>
+<script src="js/ui/panels/header.js"></script>
+<script src="js/ui/panels/you.js"></script>
+<script src="js/ui/panels/projects.js"></script>
+<script src="js/ui/panels/requests.js"></script>
+<script src="js/ui/panels/team.js"></script>
+<script src="js/ui/panels/hiring.js"></script>
+<script src="js/ui/panels/hr.js"></script>
+<script src="js/ui/panels/strategy.js"></script>
+<script src="js/ui/panels/facilities.js"></script>
+<script src="js/ui/panels/log.js"></script>
+<script src="js/ui/render.js"></script>
+<script src="js/ui/actions.js"></script>
+<script src="js/ui/session.js"></script>
+
+<!-- The 2D office -->
+<script src="js/office/map.js"></script>
+<script src="js/office/painter.js"></script>
+<script src="js/office/sprites.js"></script>
+<script src="js/office/scene.js"></script>
+<script src="js/office/player.js"></script>
+<script src="js/office/interaction.js"></script>
+<script src="js/office/loop.js"></script>
+
+<script src="js/main.js"></script>
 </body>
 </html>

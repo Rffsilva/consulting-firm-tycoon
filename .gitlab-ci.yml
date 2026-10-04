@@ -5,7 +5,7 @@ create-pages:
   image: busybox:stable
   script:
     - mkdir public
-    - cp index.html style.css hr.js game.js office.js public/
+    - cp -r index.html css js public/
   pages: true
   artifacts:
     paths:

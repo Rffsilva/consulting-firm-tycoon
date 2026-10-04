@@ -42,18 +42,28 @@ Every window can also be opened from the buttons at the top of the screen. The g
 - **Strategy** (boardroom): chooses how managers prioritise projects: protect deadlines, maximise revenue, or first come first served.
 - **HR specialist:** lists accepted projects that can't be completed, either because nobody has a required skill level or because even everyone qualified can't finish in time, and suggests who to train (or hire). With no accepted projects, it points at skills the company is lacking.
 
-## Project layout
+## Working on the code
 
-| File | Purpose |
-|---|---|
-| `index.html` | Page structure and windows |
-| `style.css` | Layout and styling (scales with the window) |
-| `game.js` | Game state, simulation, managers, and the menus |
-| `hr.js` | HR advisor logic |
-| `office.js` | The 2D office: drawing, movement, tap/click to move, interaction |
+The code is organised by purpose, with one file per kind of employee and one per window:
+
+```
+css/              styles: base pieces, screen layout, pop-up windows
+js/core/          settings (config.js holds every balance number), names, helpers, the game state and saving
+js/sim/           game rules: projects, player actions, the daily simulation
+js/employees/     one file per employee type: owner, consultant, manager, hr
+js/ui/            the HTML windows and side panel (one file per window in ui/panels/)
+js/office/        the 2D office: map, drawing, player movement, interaction
+tests/            tests for the game rules
+docs/             developer documentation
+```
+
+- **Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) first.** It explains how the files fit together, how a simulated day works, and step by step how to add a new employee type or window.
+- **To tune the game**, change the numbers in `js/core/config.js`.
+- **To run the tests**, open `tests/index.html` in a browser. There is nothing to install.
+- There is no build step. Scripts are plain `<script>` tags in `index.html`, in dependency order, and each one registers itself on a single global, `window.CFT`.
 
 Saves live in the browser's local storage, so each browser and device has its own game.
 
 ## Deployment
 
-Pushing to `main` publishes the game with GitLab Pages (see `.gitlab-ci.yml`). The job copies the game files into `public`. If you add a new file the game needs, add it to the `cp` line there.
+Pushing to `main` publishes the game with GitLab Pages (see `.gitlab-ci.yml`). The job copies `index.html`, `css/` and `js/` into `public`. New files inside those folders are published automatically.
