@@ -22,11 +22,12 @@ const STATIC_BLOCKS = [
 const PLANTS = [[1, 18], [21, 18], [28, 18], [23, 3], [28, 10]];
 
 const STATIONS = [
-  { id: 'requests', label: 'Client requests board', x: 25 * T + 8, y: 2 * T + 8 },
-  { id: 'projects', label: 'Project whiteboard', x: 21 * T + 8, y: 2 * T + 8 },
-  { id: 'hiring', label: 'Recruiting desk', x: 26 * T, y: 8 * T + 8 },
-  { id: 'strategy', label: 'Boardroom (company strategy)', x: 26 * T, y: 15 * T + 8 },
-  { id: 'office', label: 'Facilities (expand the office)', x: 26 * T, y: 18 * T + 8 },
+  // `rects` are the areas that react to a click/tap: [x, y, w, h] in canvas pixels.
+  { id: 'requests', label: 'Client requests board', x: 25 * T + 8, y: 2 * T + 8, rects: [[24 * T, 0, 48, 32]] },
+  { id: 'projects', label: 'Project whiteboard', x: 21 * T + 8, y: 2 * T + 8, rects: [[20 * T, 0, 48, 32]] },
+  { id: 'hiring', label: 'Recruiting desk', x: 26 * T, y: 8 * T + 8, rects: [[24 * T, 6 * T, 64, 32], [24 * T, 10 * T - 4, 64, 20]] },
+  { id: 'strategy', label: 'Boardroom (company strategy)', x: 26 * T, y: 15 * T + 8, rects: [[24 * T, 13 * T, 64, 32]] },
+  { id: 'office', label: 'Facilities (expand the office)', x: 26 * T, y: 18 * T + 8, rects: [[24 * T, 16 * T, 64, 32]] },
 ];
 
 const deskPos = i => ({ x: DESK_COLS[i % 5], y: DESK_ROWS[Math.floor(i / 5)] });
@@ -77,6 +78,8 @@ let modalOpen = false;
 
 function movePlayer(dt) {
   let dx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), dy = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+  if (dx || dy) clearPath(); // the keyboard always takes over from a tap
+  else if (path.length) return followPath(dt);
   player.moving = !!(dx || dy);
   if (!player.moving) return;
   if (dx && dy) { dx *= 0.7071; dy *= 0.7071; }
@@ -87,13 +90,80 @@ function movePlayer(dt) {
   player.step += dt * 8;
 }
 
+// ---------- Click / tap to move ----------
+let path = [];            // waypoints (feet positions in canvas pixels)
+let dest = null;          // where the walk marker is drawn
+let pendingTarget = null; // station or desk to open on arrival
+const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+
+function clearPath() { path = []; dest = null; pendingTarget = null; }
+
+// Breadth-first search over free tiles. Diagonal steps are only allowed when both neighbouring tiles are free.
+function reachable(sx, sy) {
+  const prev = new Map([[sy * MAP_W + sx, -1]]);
+  const queue = [[sx, sy]];
+  for (let i = 0; i < queue.length; i++) {
+    const [x, y] = queue[i];
+    for (const [dx, dy] of DIRS) {
+      const nx = x + dx, ny = y + dy, k = ny * MAP_W + nx;
+      if (prev.has(k) || solid(nx, ny)) continue;
+      if (dx && dy && (solid(x + dx, y) || solid(x, y + dy))) continue;
+      prev.set(k, y * MAP_W + x);
+      queue.push([nx, ny]);
+    }
+  }
+  return prev;
+}
+
+function walkTo(px, py) {
+  const hit = targets().find(t => (t.rects || []).some(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h));
+  if (hit && Math.hypot(hit.x - player.x, hit.y - (player.y - 4)) < 26) return hit.act(); // already standing next to it
+  const gx = hit ? hit.x : px, gy = hit ? hit.y : py;
+  const sx = Math.floor(player.x / T), sy = Math.floor(player.y / T);
+  const prev = reachable(sx, sy);
+  let bestKey = null, bestD = Infinity;
+  for (const k of prev.keys()) {
+    const d = Math.hypot((k % MAP_W) * T + 8 - gx, Math.floor(k / MAP_W) * T + 8 - gy);
+    if (d < bestD) { bestD = d; bestKey = k; }
+  }
+  const wp = [];
+  for (let k = bestKey; k !== -1 && k !== sy * MAP_W + sx; k = prev.get(k)) wp.push({ x: (k % MAP_W) * T + 8, y: Math.floor(k / MAP_W) * T + 14 });
+  path = wp.reverse();
+  pendingTarget = hit ? { x: hit.x, y: hit.y } : null;
+  dest = path.length ? { ...path[path.length - 1] } : null;
+  if (!path.length) arrive();
+}
+
+function followPath(dt) {
+  const w = path[0], vx = w.x - player.x, vy = w.y - player.y, d = Math.hypot(vx, vy), sp = 70 * dt;
+  player.moving = true; player.step += dt * 8;
+  if (Math.abs(vx) >= Math.abs(vy)) player.dir = vx > 0 ? 'right' : 'left'; else player.dir = vy > 0 ? 'down' : 'up';
+  if (d <= sp) { player.x = w.x; player.y = w.y; path.shift(); if (!path.length) arrive(); }
+  else { player.x += vx / d * sp; player.y += vy / d * sp; }
+}
+
+function arrive() {
+  player.moving = false; dest = null;
+  const want = pendingTarget; pendingTarget = null;
+  if (!want) return;
+  const t = targets().find(x => x.x === want.x && x.y === want.y);
+  if (t && Math.hypot(t.x - player.x, t.y - (player.y - 4)) < 26) t.act();
+}
+
+cv.addEventListener('pointerdown', e => {
+  if (modalOpen) return;
+  e.preventDefault();
+  const r = cv.getBoundingClientRect();
+  walkTo((e.clientX - r.left) / r.width * cv.width, (e.clientY - r.top) / r.height * cv.height);
+});
+
 // ---------- Interaction ----------
 function targets() {
-  const out = STATIONS.map(s => ({ x: s.x, y: s.y, label: s.label, act: () => openPanel(s.id) }));
+  const out = STATIONS.map(s => ({ x: s.x, y: s.y, label: s.label, rects: s.rects, act: () => openPanel(s.id) }));
   S.employees.forEach((e, i) => {
     if (i >= MAX_DESKS) return;
     const d = deskPos(i);
-    out.push({ x: d.x * T + 24, y: (d.y + 1) * T + 8,
+    out.push({ x: d.x * T + 24, y: (d.y + 1) * T + 8, rects: [[d.x * T, d.y * T, 48, 32]],
       act: () => (e.role === 'hr' ? openPanel('hr') : openEmployee(e.id)),
       label: e.owner ? 'Your desk' : e.role === 'hr' ? `${e.name} · HR advice` : `${e.name} · ${e.title}` });
   });
@@ -108,8 +178,14 @@ function updateNearest() {
     if (d < best) { best = d; nearest = t; }
   }
   const p = document.getElementById('prompt');
-  if (nearest && !modalOpen) { p.hidden = false; p.textContent = `E — ${nearest.label}`; } else p.hidden = true;
+  if (nearest && !modalOpen) { p.hidden = false; p.textContent = `${TOUCH ? 'Tap' : 'E'} — ${nearest.label}`; } else p.hidden = true;
 }
+const TOUCH = matchMedia('(pointer: coarse)').matches;
+document.getElementById('prompt').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (nearest && !modalOpen) nearest.act(); });
+if (TOUCH) document.getElementById('help').textContent = 'Tap the floor to walk · tap a desk or board to open it';
+else document.getElementById('help').textContent = 'Click the floor or use WASD / arrows to walk · click a desk or board, or press E, to open it · Esc: close window';
+// Dropdowns keep focus after a choice, which would freeze the clock-driven screen updates; release it.
+document.addEventListener('change', e => { if (e.target.tagName === 'SELECT') e.target.blur(); });
 
 // ---------- Modal ----------
 let resumeSpeed = null; // game speed to restore when the window closes
@@ -346,6 +422,10 @@ function frame(ts) {
   drawEmployees(); drawStationsFront();
   drawPerson(player.x, player.y, { shirt: '#4c6ef5', tie: '#e5484d', hair: '#4a2f1b', skin: SKIN[0], style: 0, id: 999, dir: player.dir, step: player.step, moving: player.moving });
   text('YOU', player.x, player.y - 31, '#ffe08a', 'center');
+  if (dest && path.length) { // walk marker on the floor
+    const r = Math.floor(now() * 4) % 2 ? 6 : 5, x = Math.round(dest.x), y = Math.round(dest.y) - 4;
+    for (const [ox, oy] of [[-r, 0], [r - 1, 0], [0, -r / 2], [0, r / 2 - 1]]) R(x + ox, y + Math.round(oy), 2, 2, '#ffe08a');
+  }
   if (nearest && !modalOpen) { // bobbing arrow over whatever E will interact with
     const ay = nearest.y - 22 + Math.round(Math.sin(now() * 6) * 2), ax = Math.round(nearest.x);
     R(ax - 3, ay, 7, 1, OL); R(ax - 2, ay + 1, 5, 1, OL); R(ax - 1, ay + 2, 3, 1, OL); R(ax, ay + 3, 1, 1, OL);
