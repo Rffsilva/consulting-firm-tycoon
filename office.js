@@ -192,6 +192,7 @@ let resumeSpeed = null; // game speed to restore when the window closes
 function openPanel(name) {
   if (resumeSpeed === null) { resumeSpeed = speed; setSpeed(0); } // menus pause the game
   modalOpen = true;
+  document.body.classList.add('modal-open');
   for (const k in keys) keys[k] = false;
   document.querySelectorAll('#modal section').forEach(s => { s.hidden = s.dataset.panel !== name; });
   document.getElementById('modal').hidden = false;
@@ -200,6 +201,7 @@ function openPanel(name) {
 function openEmployee(id) { openEmp = id; openPanel('employee'); }
 function closeModal() {
   modalOpen = false; openEmp = null;
+  document.body.classList.remove('modal-open');
   if (resumeSpeed !== null) { setSpeed(resumeSpeed); resumeSpeed = null; }
   document.getElementById('modal').hidden = true;
 }

@@ -99,3 +99,12 @@ canvas { touch-action: none; cursor: pointer; display: block; width: 100%; heigh
   button.small { padding: 0.35rem 0.6rem; }
   #help { font-size: 0.7rem; }
 }
+
+/* Windows on touch screens / small windows: the overlay itself scrolls (one scroll container, no vh-vs-toolbar problems),
+   the page behind is locked, and the close button stays pinned in the corner. */
+body.modal-open { overflow: hidden; }
+@media (max-width: 900px), (pointer: coarse) {
+  #modal { display: block; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 0.5rem; }
+  .mbox { max-height: none; overflow: visible; margin: 0 auto; padding-top: 2.5rem; }
+  #mclose { position: fixed; top: 0.75rem; right: 0.75rem; z-index: 9; }
+}
