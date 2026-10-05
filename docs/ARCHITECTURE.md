@@ -4,7 +4,7 @@ A guide for working on the code. For how to play, see the [README](../README.md)
 
 ## Principles
 
-- **No build, no dependencies.** Plain HTML, CSS and JavaScript. `index.html` works when opened straight from disk, and the same files are what GitLab Pages serves.
+- **No build, no dependencies.** Plain HTML, CSS and JavaScript. `index.html` works when opened straight from disk, and the same files are what GitHub Pages serves.
 - **One global.** Every script is wrapped in a function and registers what it provides on `window.CFT`. Nothing else is global.
 - **Load order is dependency order.** Scripts are classic `<script>` tags (ES modules would stop the game working when opened from disk). A file may use anything registered by files listed above it in `index.html`. The few places that need something loaded later look it up when called, and are marked `(… loads later)`.
 - **Game rules don't touch the page.** `js/core`, `js/sim` and `js/employees` only read and change the state. They never call `alert`, build HTML or read the DOM, which is what makes them testable (see [Tests](#tests)).
@@ -127,4 +127,4 @@ Saves use the `localStorage` key in `config.SAVE_KEY`. If you change the shape o
 
 ## Deployment
 
-`.gitlab-ci.yml` copies `index.html`, `css/` and `js/` into `public/` on every push to `main`, and GitLab Pages serves it.
+`.github/workflows/pages.yml` copies `index.html`, `css/` and `js/` into `public/` on every push to `main`, and GitHub Pages serves it. The repository needs **Settings → Pages → Source: GitHub Actions** turned on once.

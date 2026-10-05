@@ -2,7 +2,7 @@
 
 A small browser tycoon game. You are the owner of a new consulting firm: take on client projects, hire people with the right skills, and keep the company in business.
 
-**Play it:** https://rffsilva89.gitlab.io/consulting-firm-tycoon/
+**Play it:** https://rffsilva.github.io/consulting-firm-tycoon/
 
 It is plain HTML, CSS and JavaScript. There is nothing to install or build, and it works on desktop and phones.
 
@@ -68,4 +68,6 @@ Saves live in the browser's local storage, so each browser and device has its ow
 
 ## Deployment
 
-Pushing to `main` publishes the game with GitLab Pages (see `.gitlab-ci.yml`). The job copies `index.html`, `css/` and `js/` into `public`. New files inside those folders are published automatically.
+Pushing to `main` publishes the game with GitHub Pages (see `.github/workflows/pages.yml`). The workflow copies `index.html`, `css/` and `js/` into a `public` folder and deploys it. New files inside those folders are published automatically.
+
+One-time setup in the repository: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
