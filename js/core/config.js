@@ -50,6 +50,8 @@
     // Training someone who already has work pulls them off it, so HR weighs their cost this many times over an idle
     // person's (who has nothing else to do).
     HR_BUSY_TRAINEE_PENALTY: 1.5,
+    // HR only suggests training an idle person to join an on-track project when it takes at most this many levels
+    HR_IDLE_TRAIN_MAX_STEPS: 3,
 
     LOG_LIMIT: 80,
     SAVE_KEY: 'cft-save-v1',

@@ -6,16 +6,21 @@
   'use strict';
   const { util, staff, hrAdvisor } = CFT;
   const { esc, money } = util;
-  const { $, rich, trainButton, hireButton } = CFT.ui.components;
+  const { $, rich, trainButton, hireButton, assignButton } = CFT.ui.components;
 
   const GROUP_TITLES = {
     blocked: "Accepted projects you can't complete yet",
     late: 'Accepted projects that will miss their deadline',
+    bench: 'Idle people who could be working',
     requests: 'Skills that open client requests need',
     market: 'Skills clients commonly ask for that you are weak in',
   };
 
   function actionButton(s, a) {
+    if (a.kind === 'assign') {
+      const e = s.employees.find(x => x.id === a.employeeId), p = s.projects.find(x => x.id === a.projectId);
+      return e && p ? assignButton(e, p, a.primary) : '';
+    }
     if (a.kind === 'train') {
       const e = s.employees.find(x => x.id === a.employeeId);
       return e ? trainButton(s, e, a.skill, a.primary) : '';
@@ -59,7 +64,7 @@
     if (idle.length) {
       const wages = idle.reduce((sum, e) => sum + (e.salary || 0), 0);
       html += `<div class="muted">Idle right now: ${idle.map(e => esc(e.name)).join(', ')}${wages ? ` (${money(wages)}/mo in wages)` : ''}. ` +
-        'Training them for the skills below puts them to work.</div>';
+        (mode === 'projects' ? 'See below for how to put them to work.' : 'Training them for the skills below puts them to work.') + '</div>';
     }
     if (mode === 'lacking') html += '<div class="muted">You have no accepted projects, so here is where the company is lacking skills.</div>';
     if (!items.length) {

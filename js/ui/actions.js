@@ -32,6 +32,7 @@
       if (select && select.value) report(company.train(store.state, id(el), select.value));
     },
     'train-skill': el => report(company.train(store.state, id(el), el.dataset.skill)),
+    'assign-project': el => report(company.assign(store.state, id(el), Number(el.dataset.project))),
     'set-strategy': el => { management.setStrategy(store.state, el.dataset.strategy); store.save(store.state); },
     'expand-office': () => report(company.expandOffice(store.state)),
     'refresh-candidates': () => report(company.refreshCandidates(store.state)),

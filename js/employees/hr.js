@@ -9,14 +9,18 @@
  * Idle people (on the bench, or on a project they can't contribute to) are the preferred people to train: they cost no
  * output while they learn, and the advice says so. The panel also lists who is idle.
  *
+ * With accepted projects, idle people also get their own entries: put them on a project they can already help with,
+ * or (if there is none) train them to join one where they would save days.
+ *
  * The advice is plain data (see AdviceItem); js/ui/panels/hr.js turns it into HTML. Text may use two tiny bits of
  * markup that the UI understands: **bold** and [[cls:text]] for a coloured span (cls = good / warn / bad).
  *
  * @typedef {{kind: 'train', employeeId: number, skill: string, primary: boolean}
- *         | {kind: 'hire', candidateId: number, primary: boolean}} AdviceAction
+ *         | {kind: 'hire', candidateId: number, primary: boolean}
+ *         | {kind: 'assign', employeeId: number, projectId: number, primary: boolean}} AdviceAction
  * @typedef {{label: string, lines: string[], actions: AdviceAction[]}} AdviceRow
  * @typedef {Object} AdviceItem
- * @property {'blocked'|'late'|'requests'|'market'} group
+ * @property {'blocked'|'late'|'bench'|'requests'|'market'} group
  * @property {string} title
  * @property {string} tag        Short label, e.g. "CAN'T BE DONE".
  * @property {'bad'|'ok'} severity
@@ -101,15 +105,15 @@
    * already on the team gains one level in a requirement; an idle person outside the team trains up to the
    * requirement's minimum level to join it.
    */
-  function speedUpOptions(s, p, team, eta, workers) {
-    let train = null, hire = null;
+  function trainingOption(s, p, team, eta, workers, maxSteps = Infinity) {
+    let train = null;
     for (const m of workers) {
       const onTeam = team.includes(m);
       if (!onTeam && !isIdle(s, m)) continue; // don't pull people off other work
       for (const r of projects.openReqs(p)) {
         const level = m.skills[r.skill];
         const steps = projects.qualifies(m, r) ? 1 : r.minLevel - level;
-        if (level + steps > config.MAX_SKILL_LEVEL) continue;
+        if (level + steps > config.MAX_SKILL_LEVEL || steps > maxSteps) continue;
         const better = { ...m, skills: { ...m.skills, [r.skill]: level + steps } };
         const after = onTeam ? team.map(x => (x === m ? better : x)) : team.concat([better]);
         const saved = eta - projects.eta(p, after);
@@ -119,6 +123,12 @@
         if (!train || score > train.score) train = { e: m, skill: r.skill, steps, saved, cost, score };
       }
     }
+    return train;
+  }
+
+  /** The hire that saves the most days per dollar on a project that is too slow. */
+  function hireOption(s, p, team, eta) {
+    let hire = null;
     for (const c of s.candidates) {
       if (!isConsultant(c)) continue;
       const saved = eta - projects.eta(p, team.concat([c]));
@@ -126,7 +136,54 @@
       const score = saved / (c.salary * (1 + HORIZON));
       if (!hire || score > hire.score) hire = { c, saved, score };
     }
-    return { train, hire };
+    return hire;
+  }
+
+  /** Idle people who could be put to work: assign them, or train them so they can join a project. */
+  function adviseOnBench(s, workers, items) {
+    const trainedAlready = new Set();
+    for (const item of items) for (const r of item.rows) for (const a of r.actions) if (a.kind === 'train') trainedAlready.add(a.employeeId);
+    const margin = p => {
+      const e = projects.eta(p, projects.teamOf(s, p));
+      return e === Infinity ? -Infinity : (p.deadline - s.day) - e;
+    };
+    const out = [];
+    for (const w of workers.filter(x => !x.owner && isIdle(s, x))) { // the player directs themselves
+      const sub = `Costs ${money(w.salary || 0)}/mo while waiting for work.`;
+      const help = s.projects.filter(p => projects.canHelp(w, p)).sort((a, b) => margin(a) - margin(b))[0];
+      if (help) {
+        out.push({
+          group: 'bench', order: 2, key: out.length, title: `${w.name} is idle`, tag: 'IDLE', severity: 'ok', sub,
+          rows: [{
+            label: `${w.name} can already work on "${help.title}" (${help.client}).`,
+            lines: [`**Assign** ${w.name} to it: ${money(help.reward)} on the line, ${Math.max(0, help.deadline - s.day)} days left. Managers do this on their own, within their capacity.`],
+            actions: [{ kind: 'assign', employeeId: w.id, projectId: help.id, primary: true }],
+          }],
+        });
+        continue;
+      }
+      if (trainedAlready.has(w.id)) continue;
+      let best = null;
+      for (const p of s.projects) {
+        const team = workers.filter(x => projects.canHelp(x, p));
+        const eta = projects.eta(p, team);
+        if (eta === Infinity) continue; // blocked: covered above
+        const train = trainingOption(s, p, team, eta, [w], config.HR_IDLE_TRAIN_MAX_STEPS);
+        if (train && (!best || train.score > best.train.score)) best = { p, train };
+      }
+      if (!best) continue;
+      const { p, train } = best, l = w.skills[train.skill];
+      out.push({
+        group: 'bench', order: 2, key: out.length, title: `${w.name} is idle`, tag: 'IDLE', severity: 'ok', sub,
+        rows: [{
+          label: `${w.name} can't work on any accepted project yet, but could join "${p.title}" (${p.client}).`,
+          lines: [`**Train** ${w.name} in ${train.skill} (${l} → ${l + train.steps}) for ${money(train.cost)}: saves ~${train.saved} day(s) on "${p.title}"` +
+            `${train.steps > 1 ? `, ${train.steps} sessions, one level at a time` : ''}.`],
+          actions: [{ kind: 'train', employeeId: w.id, skill: train.skill, primary: true }],
+        }],
+      });
+    }
+    return out;
   }
 
   /** Advice while there are accepted projects. */
@@ -156,7 +213,7 @@
       const team = workers.filter(e => projects.canHelp(e, p));
       const eta = projects.eta(p, team);
       if (eta <= left) continue;
-      const { train, hire } = speedUpOptions(s, p, team, eta, workers);
+      const train = trainingOption(s, p, team, eta, workers), hire = hireOption(s, p, team, eta);
       const hireFirst = hire && (!train || hire.score > train.score);
       const enough = saved => (eta - saved <= left ? ', enough to make the deadline' : '');
       const lines = [], actions = [];
@@ -177,7 +234,7 @@
         rows: [{ label: `Even with everyone who can work on it, it needs ~**${eta} days** and only ${left} remain.`, lines, actions }],
       });
     }
-    return items;
+    return items.concat(adviseOnBench(s, workers, items));
   }
 
   /** Advice while there are no accepted projects: where the company lacks skills. */
@@ -238,13 +295,13 @@
     return { mode, items };
   }
 
-  // Number of problem projects, for the "!" over the HR desk. Recomputed at most twice a second (it runs every frame).
+  // Number of problem projects (not idle-people tips), for the "!" over the HR desk. Recomputed at most twice a second (it runs every frame).
   let cached = { at: 0, value: 0 };
   function urgentCount(s) {
     const t = Date.now();
     if (t - cached.at > 500) {
       const result = hasHR(s) ? advise(s) : null;
-      cached = { at: t, value: result && result.mode === 'projects' ? result.items.length : 0 };
+      cached = { at: t, value: result && result.mode === 'projects' ? result.items.filter(i => i.severity === 'bad').length : 0 };
     }
     return cached.value;
   }

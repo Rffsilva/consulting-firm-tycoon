@@ -109,6 +109,26 @@
       assert.deepEqual(item.rows[0].actions[0], { kind: 'train', employeeId: ann.id, skill: 'Strategy', primary: true });
     });
 
+    test('an idle person who can already do a project is offered an assignment', () => {
+      const s = fx.state();
+      const ann = fx.person(s, 'Ann', { Strategy: 3 });
+      const p = fx.project(s, 'Strategy job', [{ skill: 'Strategy', need: 100, minLevel: 2 }], { days: 40 });
+      const bench = hrAdvisor.advise(s).items.filter(i => i.group === 'bench');
+      assert.deepEqual(bench.map(i => i.title), ['Ann is idle']);
+      assert.deepEqual(bench[0].rows[0].actions[0], { kind: 'assign', employeeId: ann.id, projectId: p.id, primary: true });
+    });
+
+    test('an idle person who fits no project is offered training to join one that is on track', () => {
+      const s = fx.state();
+      const ann = fx.person(s, 'Ann', { Strategy: 1 });
+      const p = fx.project(s, 'Strategy job', [{ skill: 'Strategy', need: 100, minLevel: 2 }], { days: 40 });
+      s.employees[0].assignedTo = p.id; // the owner is working on it, and it is on track
+      const items = hrAdvisor.advise(s).items;
+      assert.deepEqual(items.map(i => i.group), ['bench']);
+      assert.deepEqual(items[0].rows[0].actions[0], { kind: 'train', employeeId: ann.id, skill: 'Strategy', primary: true });
+      assert.equal(hrAdvisor.urgentCount(s), 0, 'tips for idle people do not raise the "!"');
+    });
+
     test('a project that can be staffed but not in time is flagged as too slow', () => {
       const s = fx.state();
       fx.project(s, 'Huge', [{ skill: 'Strategy', need: 200, minLevel: 2 }], { days: 10 });
