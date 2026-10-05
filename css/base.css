@@ -1,18 +1,22 @@
 /* Colours, type and the small reusable pieces: buttons, cards, tags, progress bars. */
 
 :root {
-  --bg: #12161c; --panel: #1b212b; --card: #232b38; --line: #2f394a;
-  --text: #e6eaf0; --muted: #8b97a8; --accent: #4f9cff; --good: #46c27a; --bad: #e5554f; --warn: #e8b04a;
+  --bg: #171a2e; --panel: #21254a; --card: #2b3060; --line: #3f4580;
+  --text: #f4efff; --muted: #a6a8d0; --accent: #e0567f; --sakura: #ffb7c5; --gold: #e8c25a; --good: #5ccf94; --bad: #ff6b6b; --warn: #f0c060;
 }
 * { box-sizing: border-box; }
 
 /* One fluid base size: every rem grows and shrinks with the window (16px at about 1280x800). */
 html { touch-action: manipulation; font-size: clamp(13px, min(0.55vw + 9px, 0.9vh + 9px), 26px); }
-body { margin: 0; background: var(--bg); color: var(--text); font: 0.875rem/1.4 system-ui, sans-serif;
+body { margin: 0; background: var(--bg); color: var(--text); font: 0.875rem/1.4 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', 'Yu Gothic UI', 'Noto Sans JP', 'Meiryo', system-ui, sans-serif;
+  background-image: radial-gradient(circle at 100% 0, rgba(255,183,197,.10), transparent 40%), radial-gradient(circle at 0 100%, rgba(232,194,90,.07), transparent 35%);
   height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
-h1 { font-size: 1.125rem; margin: 0; }
-h2 { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 1.125rem 0 0.5rem; }
+h1 { font-size: 1.125rem; margin: 0; display: flex; align-items: baseline; gap: 0.6rem; }
+h1 small { font-size: 0.7rem; font-weight: 500; color: var(--sakura); letter-spacing: .15em; }
+h1::before { content: '桜'; display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; background: #d9453a; color: #fff;
+  border-radius: 0.2rem; font-size: 0.95rem; transform: rotate(-4deg); align-self: center; box-shadow: 0 0 0 2px #fff3 inset; }
+h2 { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: .08em; color: var(--sakura); margin: 1.125rem 0 0.5rem; }
 h2:first-child { margin-top: 0; }
 section { min-width: 0; }
 
@@ -24,29 +28,29 @@ section { min-width: 0; }
 .empty { color: var(--muted); font-style: italic; padding: 0.5rem 0; }
 
 /* Buttons and dropdowns */
-button { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 0.375rem;
-  padding: 0.375rem 0.75rem; cursor: pointer; font: inherit; }
-button:hover:not(:disabled) { border-color: var(--accent); }
+button { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 999px;
+  padding: 0.375rem 0.9rem; cursor: pointer; font: inherit; transition: transform .1s, border-color .1s; }
+button:hover:not(:disabled) { border-color: var(--sakura); transform: translateY(-1px); }
 button:disabled { opacity: .4; cursor: not-allowed; }
-button.active, button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.active, button.primary { background: linear-gradient(180deg, #f0688f, #d9453a); border-color: var(--sakura); color: #fff; }
 button.danger:hover { border-color: var(--bad); }
 button.small { padding: 0.125rem 0.5rem; font-size: 0.75rem; margin-left: 0.5rem; }
-select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 0.375rem; padding: 0.25rem; font: inherit; }
+select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 0.6rem; padding: 0.25rem; font: inherit; }
 
 /* Cards and lists */
 .list { display: flex; flex-direction: column; gap: 0.5rem; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.625rem 0.75rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--sakura); border-radius: 0.75rem; padding: 0.625rem 0.75rem; }
 .card .row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
 .card .title { font-weight: 600; }
 
 /* Tags (skills, statuses) */
 .tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0.375rem 0; }
-.tag { background: var(--panel); border: 1px solid var(--line); border-radius: 0.25rem; padding: 1px 0.375rem; font-size: 0.75rem; }
+.tag { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 1px 0.55rem; font-size: 0.75rem; }
 .tag.ok { border-color: var(--good); }
 .tag.missing { border-color: var(--bad); }
 
 /* Progress bars */
 .bar { height: 0.375rem; background: var(--panel); border-radius: 0.2rem; overflow: hidden; margin: 0.2rem 0 0.375rem; }
-.bar > i { display: block; height: 100%; background: var(--accent); }
+.bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--sakura), var(--accent)); }
 .bar.big { height: 0.625rem; margin: 0.375rem 0 0.125rem; }
 .req { font-size: 0.75rem; }
