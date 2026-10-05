@@ -87,7 +87,7 @@
     const projectOptions = ['<option value="">Idle (bench)</option>']
       .concat(s.projects.map(p => `<option value="${p.id}" ${e.assignedTo === p.id ? 'selected' : ''}>${esc(p.title)}</option>`)).join('');
     const trainOptions = staff.trainableSkills(e).filter(skill => staff.skillLevel(e, skill) < config.MAX_SKILL_LEVEL)
-      .map(skill => `<option value="${esc(skill)}">${skill} → ${staff.skillLevel(e, skill) + 1} (${money(staff.trainCost(e, skill))})</option>`).join('');
+      .map(skill => `<option value="${esc(skill)}" ${e.lastTrained === skill ? 'selected' : ''}>${skill} → ${staff.skillLevel(e, skill) + 1} (${money(staff.trainCost(e, skill))})</option>`).join('');
     const status = role.cardStatus
       ? `<span class="muted">${esc(role.cardStatus(e, s))}</span>`
       : `<select data-action="assign" data-id="${e.id}">${projectOptions}</select>${e.managed ? ' <span class="tag ok">managed</span>' : ''}`;

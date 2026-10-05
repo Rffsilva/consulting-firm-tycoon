@@ -53,7 +53,7 @@
     return OK;
   }
 
-  /** One level of training in `skill` (a normal skill or 'Management'). Raises the salary. @returns {Result} */
+  /** One level of training in `skill` (a normal skill or 'Management'). Raises the salary and remembers the skill. @returns {Result} */
   function train(s, employeeId, skill) {
     const e = employee(s, employeeId);
     if (!e || !skill || staff.skillLevel(e, skill) >= config.MAX_SKILL_LEVEL) return fail();
@@ -62,6 +62,7 @@
     s.money -= cost;
     if (skill === staff.MANAGEMENT) e.mgmt++; else e.skills[skill]++;
     if (!e.owner) e.salary += staff.salaryRaise(skill);
+    e.lastTrained = skill; // the card's training dropdown starts on this next time
     store.log(s, `${e.name} trained ${skill} to level ${staff.skillLevel(e, skill)} (${money(cost)}).`);
     return OK;
   }
