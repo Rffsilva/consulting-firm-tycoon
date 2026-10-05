@@ -81,13 +81,20 @@
     </div>`;
   }
 
+  /**
+   * The skill picked in each employee's training dropdown, by employee id. The screen is redrawn from the state
+   * every game day, so without this a pick made before pressing Train would jump back on the next redraw.
+   */
+  const trainPicks = {};
+
   /** Employee card with the project picker (or the role's status line), training and firing. */
   function employeeCard(e, s) {
     const role = staff.roleOf(e);
     const projectOptions = ['<option value="">Idle (bench)</option>']
       .concat(s.projects.map(p => `<option value="${p.id}" ${e.assignedTo === p.id ? 'selected' : ''}>${esc(p.title)}</option>`)).join('');
+    const picked = trainPicks[e.id] || e.lastTrained;
     const trainOptions = staff.trainableSkills(e).filter(skill => staff.skillLevel(e, skill) < config.MAX_SKILL_LEVEL)
-      .map(skill => `<option value="${esc(skill)}" ${e.lastTrained === skill ? 'selected' : ''}>${skill} → ${staff.skillLevel(e, skill) + 1} (${money(staff.trainCost(e, skill))})</option>`).join('');
+      .map(skill => `<option value="${esc(skill)}" ${picked === skill ? 'selected' : ''}>${skill} → ${staff.skillLevel(e, skill) + 1} (${money(staff.trainCost(e, skill))})</option>`).join('');
     const status = role.cardStatus
       ? `<span class="muted">${esc(role.cardStatus(e, s))}</span>`
       : `<select data-action="assign" data-id="${e.id}">${projectOptions}</select>${e.managed ? ' <span class="tag ok">managed</span>' : ''}`;
@@ -98,7 +105,7 @@
       <div class="row">
         <span>${status}</span>
         <span>
-          <select class="train-select">${trainOptions}</select>
+          <select class="train-select" data-action="train-pick" data-id="${e.id}">${trainOptions}</select>
           <button class="small" data-action="train" data-id="${e.id}">Train</button>
           ${e.owner ? '' : `<button class="small danger" data-action="fire" data-id="${e.id}">Fire</button>`}
         </span>
@@ -117,7 +124,7 @@
   }
 
   CFT.ui.components = {
-    $, rich, empty, skillTags, personTags,
+    $, rich, empty, skillTags, personTags, trainPicks,
     trainButton, hireButton,
     offerCard, projectCard, employeeCard, candidateCard,
   };
