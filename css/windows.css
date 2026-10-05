@@ -2,7 +2,8 @@
 
 #modal { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: grid; place-items: center; z-index: 8; padding: 1rem; }
 #modal[hidden] { display: none; }
-.mbox { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 0.75rem;
+.mbox { position: relative; background: var(--panel); border: 1px solid var(--line); border-top: 4px solid #d9453a; border-radius: 1rem;
+  box-shadow: 0 0 0 2px var(--gold) inset, 0 12px 40px rgba(0,0,0,.5);
   width: min(36rem, 100%); max-height: 88vh; overflow-y: auto; padding: 1.125rem; }
 .mbox section[hidden] { display: none; }
 #mclose { position: absolute; top: 0.625rem; right: 0.625rem; }
@@ -10,11 +11,11 @@
 
 #gameover { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: grid; place-items: center; z-index: 10; }
 #gameover[hidden] { display: none; }
-.modal { background: var(--panel); border: 1px solid var(--line); border-radius: 0.75rem; padding: 1.5rem 2rem; text-align: center; }
+.modal { background: var(--panel); border: 1px solid var(--line); border-radius: 1rem; border-top: 4px solid #d9453a; padding: 1.5rem 2rem; text-align: center; }
 
 /* Strategy window */
-button.strat { display: flex; flex-direction: column; align-items: flex-start; gap: 0.125rem; text-align: left; padding: 0.625rem 0.75rem; }
-button.strat.active { border-color: var(--accent); background: #26354d; }
+button.strat { display: flex; flex-direction: column; align-items: flex-start; gap: 0.125rem; text-align: left; border-radius: 0.75rem; padding: 0.625rem 0.75rem; }
+button.strat.active { border-color: var(--sakura); background: #3a2f5c; }
 
 /* HR window */
 .hrgroup { margin: 0.875rem 0 0.125rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--warn); }

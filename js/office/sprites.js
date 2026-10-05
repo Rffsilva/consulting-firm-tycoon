@@ -4,10 +4,10 @@
  */
 (function (CFT) {
   'use strict';
-  const { staff } = CFT;
+  const { staff, palette } = CFT;
   const { OL, rect, box, now } = CFT.office.painter;
 
-  const PANTS = '#3b4a7a';
+  const PANTS = '#2e3560';
 
   /** The Look for an employee or candidate, decided by their role. */
   const lookOf = e => staff.roleOf(e).look(e);
@@ -49,6 +49,7 @@
     // torso
     b(-3, -9 + yo, 6, 6, o.shirt);
     r(-2, -8 + yo, 2, 1, 'rgba(255,255,255,.5)');
+    if (!fromBehind && !o.tie) { r(-3, -9 + yo, 6, 1, '#fff'); r(-1, -8 + yo, 2, 1, '#d9453a'); } // sailor-style collar and ribbon
     if (o.tie && !fromBehind) { r(0, -9 + yo, 1, 1, '#fff'); r(0, -8 + yo, 1, 4, o.tie); }
 
     // head
@@ -59,24 +60,36 @@
       return;
     }
     const style = o.style % 4;
-    r(-5, -18 + yo, 10, 3, o.hair);
-    r(-3, -18 + yo, 2, 1, 'rgba(255,255,255,.35)');
-    if (style === 1) { r(-5, -15 + yo, 2, 7, o.hair); r(3, -15 + yo, 2, 7, o.hair); }      // long hair
-    else { r(-5, -15 + yo, 1, 3, o.hair); r(4, -15 + yo, 1, 3, o.hair); }
-    if (style === 0) r(-5, -15 + yo, 5, 2, o.hair);                                       // side fringe
-    if (style === 2) b(-1, -21 + yo, 3, 3, o.hair);                                       // top tuft
-    if (style === 3) { r(-5, -18 + yo, 10, 4, '#ff6b6b'); r(-5, -15 + yo, 10, 1, '#c93b3b'); } // cap
+    const hl = 'rgba(255,255,255,.55)';
+    r(-5, -18 + yo, 10, 3, o.hair);                                                       // crown
+    r(-3, -18 + yo, 3, 1, hl); r(1, -17 + yo, 2, 1, hl);                                   // glossy hair shine
+    // anime fringe: pointed bangs over the forehead
+    r(-5, -15 + yo, 2, 3, o.hair); r(3, -15 + yo, 2, 3, o.hair);
+    r(-1, -15 + yo, 2, 1, o.hair); r(-3, -15 + yo, 1, 1, o.hair); r(2, -15 + yo, 1, 1, o.hair);
+    if (style === 0) { r(-5, -15 + yo, 6, 2, o.hair); r(-5, -13 + yo, 1, 2, o.hair); }     // side-swept bangs
+    if (style === 1) { r(-6, -15 + yo, 2, 11, o.hair); r(4, -15 + yo, 2, 11, o.hair);        // long hair with side locks
+      r(-6, -5 + yo, 2, 1, o.hair); r(4, -5 + yo, 2, 1, o.hair); }
+    if (style === 2) { b(-1, -22 + yo, 2, 4, o.hair); r(1, -23 + yo, 2, 2, o.hair); }      // ahoge (the lone antenna hair)
+    if (style === 3) { r(-5, -16 + yo, 10, 2, '#fff'); r(-1, -16 + yo, 2, 2, '#d9453a');    // hachimaki headband
+      r(5, -15 + yo, 2, 1, '#fff'); r(6, -14 + yo, 2, 2, '#fff'); }
 
-    // face: eyes look where the person is going and blink now and then
+    // face: big shiny anime eyes that look where the person is going and blink now and then
     const sx = o.dir === 'left' ? -1 : o.dir === 'right' ? 1 : 0;
     const blinking = ((t * 0.8 + id * 0.37) % 3.4) < 0.13;
-    for (const ex of [-3 + sx, 1 + sx]) {
-      if (blinking) r(ex, -12 + yo, 2, 1, OL);
-      else { r(ex, -14 + yo, 2, 3, OL); r(ex, -14 + yo, 1, 1, '#fff'); }
+    const iris = palette.EYE[id % palette.EYE.length];
+    for (const ex of [-4 + sx, 1 + sx]) {
+      if (blinking) { r(ex, -11 + yo, 3, 1, OL); continue; }
+      r(ex, -14 + yo, 3, 1, OL);                 // upper lash line
+      r(ex, -13 + yo, 3, 3, iris);               // iris
+      r(ex, -11 + yo, 3, 1, 'rgba(255,255,255,.35)'); // lower glow
+      r(ex + 1, -13 + yo, 1, 2, OL);             // pupil
+      r(ex, -13 + yo, 1, 1, '#fff');             // big highlight
+      r(ex + 2, -11 + yo, 1, 1, '#fff');         // tiny highlight
     }
-    r(-4 + sx, -11 + yo, 2, 1, '#ff9a9a'); r(2 + sx, -11 + yo, 2, 1, '#ff9a9a'); // cheeks
-    r(-1 + sx, -10 + yo, 2, 1, '#b8434a');                                       // mouth
-    if (o.glasses) { r(-4 + sx, -15 + yo, 4, 1, OL); r(1 + sx, -15 + yo, 4, 1, OL); r(0 + sx, -14 + yo, 1, 1, OL); }
+    r(-4 + sx, -10 + yo, 2, 1, '#ff9eb5'); r(2 + sx, -10 + yo, 2, 1, '#ff9eb5');   // blush
+    r(-1 + sx, -9 + yo, 2, 1, '#c2506a');                                            // small smile
+    if (o.glasses) { r(-5 + sx, -14 + yo, 5, 1, OL); r(1 + sx, -14 + yo, 5, 1, OL); r(0 + sx, -13 + yo, 1, 1, OL);
+      r(-5 + sx, -10 + yo, 5, 1, 'rgba(42,32,56,.5)'); r(1 + sx, -10 + yo, 5, 1, 'rgba(42,32,56,.5)'); }
   }
 
   CFT.office.sprites = { lookOf, drawPerson };
