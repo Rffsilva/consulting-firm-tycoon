@@ -109,13 +109,11 @@
       assert.deepEqual(item.rows[0].actions[0], { kind: 'train', employeeId: ann.id, skill: 'Strategy', primary: true });
     });
 
-    test('an idle person who can already do a project is offered an assignment', () => {
+    test('an idle person who can already do a project is left to the managers', () => {
       const s = fx.state();
-      const ann = fx.person(s, 'Ann', { Strategy: 3 });
-      const p = fx.project(s, 'Strategy job', [{ skill: 'Strategy', need: 100, minLevel: 2 }], { days: 40 });
-      const bench = hrAdvisor.advise(s).items.filter(i => i.group === 'bench');
-      assert.deepEqual(bench.map(i => i.title), ['Ann is idle']);
-      assert.deepEqual(bench[0].rows[0].actions[0], { kind: 'assign', employeeId: ann.id, projectId: p.id, primary: true });
+      fx.person(s, 'Ann', { Strategy: 3 });
+      fx.project(s, 'Strategy job', [{ skill: 'Strategy', need: 100, minLevel: 2 }], { days: 40 });
+      assert.deepEqual(hrAdvisor.advise(s).items.filter(i => i.group === 'bench'), []);
     });
 
     test('an idle person who fits no project is offered training to join one that is on track', () => {

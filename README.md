@@ -42,7 +42,7 @@ Every window can also be opened from the buttons at the top of the screen. The g
 
 - **Managers** assign idle staff to projects automatically. Each has a Management level that sets how many people they can handle. Anyone you assign yourself is left alone.
 - **Strategy** (boardroom): chooses how managers prioritise projects: protect deadlines, maximise revenue, or first come first served.
-- **HR specialist:** lists accepted projects that can't be completed, either because nobody has a required skill level or because even everyone qualified can't finish in time, and suggests who to train (or hire). Idle people are preferred for training, since they have no work to lose, and the window lists who is idle. Idle people also get their own tips: an Assign button when they can already work on an accepted project, or a training suggestion that would let them join one. With no accepted projects, it points at skills the company is lacking.
+- **HR specialist:** lists accepted projects that can't be completed, either because nobody has a required skill level or because even everyone qualified can't finish in time, and suggests who to train (or hire). Idle people are preferred for training, since they have no work to lose, and the window lists who is idle. Idle people who fit none of the accepted projects get a training suggestion that would let them join one. Placing people is left to managers. With no accepted projects, it points at skills the company is lacking.
 
 ## Working on the code
 

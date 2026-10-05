@@ -37,10 +37,6 @@
       ${s.money < cost ? 'disabled' : ''}>Train ${esc(e.name)} (${money(cost)})</button>`;
   }
 
-  function assignButton(e, p, primary) {
-    return `<button class="small ${primary ? 'primary' : ''}" data-action="assign-project" data-id="${e.id}" data-project="${p.id}">Assign ${esc(e.name)}</button>`;
-  }
-
   function hireButton(s, c, primary, small = true) {
     const blocked = s.employees.length >= s.desks || s.money < c.salary;
     return `<button class="${small ? 'small ' : ''}${primary ? 'primary' : ''}" data-action="hire" data-id="${c.id}"
@@ -129,7 +125,7 @@
 
   CFT.ui.components = {
     $, rich, empty, skillTags, personTags, trainPicks,
-    trainButton, hireButton, assignButton,
+    trainButton, hireButton,
     offerCard, projectCard, employeeCard, candidateCard,
   };
 })(window.CFT);

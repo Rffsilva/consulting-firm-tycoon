@@ -9,15 +9,14 @@
  * Idle people (on the bench, or on a project they can't contribute to) are the preferred people to train: they cost no
  * output while they learn, and the advice says so. The panel also lists who is idle.
  *
- * With accepted projects, idle people also get their own entries: put them on a project they can already help with,
- * or (if there is none) train them to join one where they would save days.
+ * With accepted projects, idle people who can't help any of them also get an entry: train them to join one where they
+ * would save days. Putting idle people who can already help onto projects is the managers' job, not HR's.
  *
  * The advice is plain data (see AdviceItem); js/ui/panels/hr.js turns it into HTML. Text may use two tiny bits of
  * markup that the UI understands: **bold** and [[cls:text]] for a coloured span (cls = good / warn / bad).
  *
  * @typedef {{kind: 'train', employeeId: number, skill: string, primary: boolean}
- *         | {kind: 'hire', candidateId: number, primary: boolean}
- *         | {kind: 'assign', employeeId: number, projectId: number, primary: boolean}} AdviceAction
+ *         | {kind: 'hire', candidateId: number, primary: boolean}} AdviceAction
  * @typedef {{label: string, lines: string[], actions: AdviceAction[]}} AdviceRow
  * @typedef {Object} AdviceItem
  * @property {'blocked'|'late'|'bench'|'requests'|'market'} group
@@ -139,29 +138,14 @@
     return hire;
   }
 
-  /** Idle people who could be put to work: assign them, or train them so they can join a project. */
+  /** Idle people who fit no accepted project: train them so they can join one. (Managers place the ones who do fit.) */
   function adviseOnBench(s, workers, items) {
     const trainedAlready = new Set();
     for (const item of items) for (const r of item.rows) for (const a of r.actions) if (a.kind === 'train') trainedAlready.add(a.employeeId);
-    const margin = p => {
-      const e = projects.eta(p, projects.teamOf(s, p));
-      return e === Infinity ? -Infinity : (p.deadline - s.day) - e;
-    };
     const out = [];
     for (const w of workers.filter(x => !x.owner && isIdle(s, x))) { // the player directs themselves
       const sub = `Costs ${money(w.salary || 0)}/mo while waiting for work.`;
-      const help = s.projects.filter(p => projects.canHelp(w, p)).sort((a, b) => margin(a) - margin(b))[0];
-      if (help) {
-        out.push({
-          group: 'bench', order: 2, key: out.length, title: `${w.name} is idle`, tag: 'IDLE', severity: 'ok', sub,
-          rows: [{
-            label: `${w.name} can already work on "${help.title}" (${help.client}).`,
-            lines: [`**Assign** ${w.name} to it: ${money(help.reward)} on the line, ${Math.max(0, help.deadline - s.day)} days left. Managers do this on their own, within their capacity.`],
-            actions: [{ kind: 'assign', employeeId: w.id, projectId: help.id, primary: true }],
-          }],
-        });
-        continue;
-      }
+      if (s.projects.some(p => projects.canHelp(w, p))) continue;
       if (trainedAlready.has(w.id)) continue;
       let best = null;
       for (const p of s.projects) {
