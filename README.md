@@ -26,6 +26,8 @@ To try it on a phone on the same Wi-Fi, run the same command and open `http://<y
 | Open a desk, board or station | Click it, or stand next to it and press **E** | Tap it, or tap the prompt that appears |
 | Close a window | **Esc** or the ✕ | The ✕ |
 
+New to the game? Press **How to play** at the top for a short guide to the goal, the controls and what each role does. It also opens by itself the first time you play.
+
 Every window can also be opened from the buttons at the top of the screen. The game pauses while a window is open and resumes at the previous speed when you close it. Use the speed buttons (⏸, 1×, 2×, 4×) to control the clock.
 
 ## How the game works

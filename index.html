@@ -32,6 +32,7 @@
     <button data-speed="1">1×</button>
     <button data-speed="2">2×</button>
     <button data-speed="4">4×</button>
+    <button data-open="tutorial">How to play</button>
     <button class="danger" data-action="new-game">New game</button>
   </div>
 </header>
@@ -58,6 +59,7 @@
   <div class="mbox">
     <button id="mclose" title="Close (Esc)">✕</button>
     <div class="muted paused">⏸ Game paused while this window is open</div>
+    <section data-panel="tutorial"><h2>How to play</h2><div id="tutorial"></div></section>
     <section data-panel="requests"><h2>Client Requests</h2><div id="offers" class="list"></div></section>
     <section data-panel="projects"><h2>Active Projects</h2><div id="projects" class="list"></div></section>
     <section data-panel="team"><h2>Your Team</h2><div id="team" class="list"></div></section>
@@ -110,6 +112,7 @@
 <script src="js/ui/panels/strategy.js"></script>
 <script src="js/ui/panels/facilities.js"></script>
 <script src="js/ui/panels/log.js"></script>
+<script src="js/ui/tutorial.js"></script>
 <script src="js/ui/render.js"></script>
 <script src="js/ui/actions.js"></script>
 <script src="js/ui/session.js"></script>

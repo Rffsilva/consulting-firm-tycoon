@@ -44,6 +44,7 @@ js/
     render.js         redraws every panel
     actions.js        handles every button and dropdown (data-action)
     session.js        new game, resume, game over
+    tutorial.js       the "How to play" guide (its steps and window)
   office/             the 2D office canvas
     map.js            floor plan, desks, stations, collision
     painter.js        canvas and drawing primitives, scaling

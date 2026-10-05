@@ -37,6 +37,9 @@
     'refresh-candidates': () => report(company.refreshCandidates(store.state)),
     'new-game': () => { if (confirm('Discard this game and start over?')) CFT.ui.session.newGame(); },
     'restart': () => { CFT.ui.session.newGame(); CFT.ui.clock.setSpeed(1); },
+    'tutorial-next': () => CFT.ui.tutorial.next(),
+    'tutorial-prev': () => CFT.ui.tutorial.prev(),
+    'tutorial-done': () => CFT.ui.windows.close(),
   };
 
   const CHANGE_ACTIONS = {

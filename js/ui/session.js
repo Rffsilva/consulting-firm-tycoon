@@ -14,12 +14,13 @@
       CFT.ui.render();
     },
 
-    /** Continues the saved game, or starts a new one. */
+    /** Continues the saved game, or starts a new one. @returns {boolean} true when there was no saved game */
     resumeOrStart() {
       const saved = store.load();
-      if (!saved) return CFT.ui.session.newGame();
+      if (!saved) { CFT.ui.session.newGame(); return true; }
       store.state = saved;
       CFT.ui.render();
+      return false;
     },
 
     gameOver() {

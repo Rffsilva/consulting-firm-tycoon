@@ -35,3 +35,19 @@ body.modal-open { overflow: hidden; }
   .mbox { max-height: none; overflow: visible; margin: 0 auto; padding-top: 2.5rem; }
   #mclose { position: fixed; top: 0.75rem; right: 0.75rem; z-index: 9; }
 }
+
+/* How to play */
+.tut-title { margin: 0.25rem 0 0.5rem; font-size: 1.05rem; }
+.tut-body p, .tut-body li { line-height: 1.5; }
+.tut-body ul, .tut-body ol { padding-left: 1.25rem; }
+.tut-body li { margin: 0.25rem 0; }
+.tut-roles { list-style: none; padding: 0 !important; }
+.tut-roles li { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.6rem 0; }
+.tut-roles li > div { flex: 1; }
+.swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 0.2rem; margin-top: 0.3rem; flex: none;
+  box-shadow: 0 0 0 2px var(--line); }
+kbd { background: var(--card); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 0.25rem; padding: 0 0.3rem; font: inherit; font-size: 0.75rem; }
+.tut-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; }
+.tut-dots { display: flex; gap: 0.3rem; }
+.tut-dot { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--line); }
+.tut-dot.on { background: var(--accent); }

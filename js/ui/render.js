@@ -9,7 +9,7 @@
   // Order doesn't matter for correctness; it is listed to show every panel in one place.
   const ALL_PANELS = [
     panels.header, panels.you, panels.projects, panels.requests, panels.team,
-    panels.hiring, panels.hr, panels.strategy, panels.facilities, panels.log,
+    panels.hiring, panels.hr, panels.strategy, panels.facilities, panels.log, panels.tutorial,
   ];
 
   CFT.ui.render = function render() {
