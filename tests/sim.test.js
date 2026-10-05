@@ -97,6 +97,13 @@
       assert.equal(mia.salary, 1000 + config.MANAGEMENT_SALARY_RAISE);
     });
 
+    test('training remembers the last skill trained', () => {
+      const s = fx.state();
+      const ann = fx.person(s, 'Ann', { Analytics: 2 });
+      company.train(s, ann.id, 'Analytics');
+      assert.equal(ann.lastTrained, 'Analytics');
+    });
+
     test('training stops at level 10', () => {
       const s = fx.state();
       const ann = fx.person(s, 'Ann', { Analytics: 10 });

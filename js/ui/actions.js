@@ -44,6 +44,7 @@
 
   const CHANGE_ACTIONS = {
     assign: el => company.assign(store.state, id(el), el.value === '' ? null : Number(el.value)),
+    'train-pick': el => { CFT.ui.components.trainPicks[id(el)] = el.value; },
   };
 
   CFT.ui.actions = {
