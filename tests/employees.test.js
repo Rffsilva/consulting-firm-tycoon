@@ -87,6 +87,28 @@
       assert.deepEqual(action, { kind: 'train', employeeId: s.employees[0].id, skill: 'Analytics', primary: true });
     });
 
+    test('an idle person is trained rather than someone already busy, even at the same cost', () => {
+      const s = fx.state();
+      const ann = fx.person(s, 'Ann', { Analytics: 2 });
+      const busy = fx.project(s, 'Busy work', [{ skill: 'Strategy', need: 100, minLevel: 2 }]);
+      s.employees[0].assignedTo = busy.id; // the owner (Analytics 2) is working
+      fx.project(s, 'Stalled', [{ skill: 'Analytics', need: 40, minLevel: 3 }]);
+      const item = hrAdvisor.advise(s).items.find(i => i.title === 'Stalled');
+      const [action] = item.rows[0].actions;
+      assert.equal(action.employeeId, ann.id);
+      assert.ok(item.rows[0].lines[0].includes('Ann is idle'), item.rows[0].lines[0]);
+      assert.deepEqual(hrAdvisor.idleWorkers(s).map(e => e.name), ['Ann']);
+    });
+
+    test('a too-slow project suggests training an idle person to join it', () => {
+      const s = fx.state();
+      const ann = fx.person(s, 'Ann', { Strategy: 1 });
+      fx.project(s, 'Huge', [{ skill: 'Strategy', need: 200, minLevel: 2 }], { days: 10 });
+      const [item] = hrAdvisor.advise(s).items;
+      assert.equal(item.group, 'late');
+      assert.deepEqual(item.rows[0].actions[0], { kind: 'train', employeeId: ann.id, skill: 'Strategy', primary: true });
+    });
+
     test('a project that can be staffed but not in time is flagged as too slow', () => {
       const s = fx.state();
       fx.project(s, 'Huge', [{ skill: 'Strategy', need: 200, minLevel: 2 }], { days: 10 });

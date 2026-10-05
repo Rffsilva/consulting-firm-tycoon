@@ -6,6 +6,9 @@
  * - With no accepted projects: lists skills the company lacks, judged by the open client requests and by what
  *   clients typically ask for at the current reputation.
  *
+ * Idle people (on the bench, or on a project they can't contribute to) are the preferred people to train: they cost no
+ * output while they learn, and the advice says so. The panel also lists who is idle.
+ *
  * The advice is plain data (see AdviceItem); js/ui/panels/hr.js turns it into HTML. Text may use two tiny bits of
  * markup that the UI understands: **bold** and [[cls:text]] for a coloured span (cls = good / warn / bad).
  *
@@ -32,12 +35,18 @@
   const isConsultant = c => staff.is(c, 'consultant');
   const HORIZON = config.HR_COST_HORIZON_MONTHS;
 
+  /** Idle: not working on anything useful right now (on the bench, or on a project they can't help with). */
+  const isIdle = (s, e) => !projects.canHelp(e, projects.find(s, e.assignedTo));
+  const idleWorkers = s => staff.projectWorkers(s).filter(e => isIdle(s, e));
+  const busyFactor = (s, e) => (isIdle(s, e) ? 1 : config.HR_BUSY_TRAINEE_PENALTY);
+
   const noFreeDesk = s => (s.employees.length >= s.desks ? ' [[warn:No free desk: expand the office first.]]' : '');
   const nextCandidateDay = s => s.day + config.CANDIDATE_REFRESH_DAYS - (s.day % config.CANDIDATE_REFRESH_DAYS);
 
   /**
    * Cheapest way to get someone with `skill` at `minLevel`: train an existing project worker (any number of levels),
-   * or hire a listed consultant. Compared over HR_COST_HORIZON_MONTHS of salary.
+   * or hire a listed consultant. Compared over HR_COST_HORIZON_MONTHS of salary. Training a busy person counts for
+   * more (HR_BUSY_TRAINEE_PENALTY), so an idle person wins unless a busy one is much closer.
    */
   function fixSkillGap(s, skill, minLevel, workers) {
     let train = null, hire = null;
@@ -46,26 +55,31 @@
       if (gap < 1 || e.skills[skill] + gap > config.MAX_SKILL_LEVEL) continue;
       const cost = staff.trainPlanCost(e, skill, gap);
       const total = cost + (e.owner ? 0 : gap * config.TRAIN_SALARY_RAISE * HORIZON); // the owner has no salary
-      if (!train || total < train.total) train = { e, gap, cost, total, skill };
+      const weighed = total * busyFactor(s, e);
+      if (!train || weighed < train.weighed) train = { e, gap, cost, total, weighed, skill };
     }
     for (const c of s.candidates) {
       if (!isConsultant(c) || c.skills[skill] < minLevel) continue;
       const total = c.salary * (1 + HORIZON);
       if (!hire || total < hire.total) hire = { c, total, skill };
     }
-    const pickOption = train && hire ? (train.total <= hire.total ? 'train' : 'hire') : train ? 'train' : hire ? 'hire' : null;
+    const pickOption = train && hire ? (train.weighed <= hire.total ? 'train' : 'hire') : train ? 'train' : hire ? 'hire' : null;
     return { train, hire, pick: pickOption };
   }
 
+  /** Sentence saying the trainee has nothing to do right now. `title`: the project this would start, if any. */
+  const idleNote = (s, e, title) => (isIdle(s, e) && !e.owner
+    ? ` ${e.name} is idle, so this puts them to work${title ? ` on "${title}"` : ''}.` : '');
+
   /** Advice lines and actions for a skill gap. Training is listed first unless hiring is cheaper. */
-  function gapAdvice(s, fix) {
+  function gapAdvice(s, fix, title) {
     const lines = [], actions = [];
     for (const kind of fix.pick === 'hire' ? ['hire', 'train'] : ['train', 'hire']) {
       if (kind === 'train' && fix.train) {
         const { e, skill, gap, cost } = fix.train, lvl = e.skills[skill];
         lines.push(`**Train** ${e.name} in ${skill} (${lvl} → ${lvl + gap}): ${money(cost)} in total` +
           `${e.owner ? '' : `, +${money(config.TRAIN_SALARY_RAISE * gap)}/mo`}${gap > 1 ? `, ${gap} sessions, one level at a time` : ''}.` +
-          `${fix.pick === 'hire' ? '' : ' [[good:Recommended]]'}`);
+          `${fix.pick === 'hire' ? '' : ' [[good:Recommended]]'}${idleNote(s, e, title)}`);
         actions.push({ kind: 'train', employeeId: e.id, skill, primary: fix.pick === 'train' });
       }
       if (kind === 'hire' && fix.hire) {
@@ -82,18 +96,27 @@
     return { lines, actions };
   }
 
-  /** The single training session or hire that saves the most days per dollar on a project that is too slow. */
-  function speedUpOptions(s, p, team, eta) {
+  /**
+   * The single training plan or hire that saves the most days per dollar on a project that is too slow. Someone
+   * already on the team gains one level in a requirement; an idle person outside the team trains up to the
+   * requirement's minimum level to join it.
+   */
+  function speedUpOptions(s, p, team, eta, workers) {
     let train = null, hire = null;
-    for (const m of team) {
+    for (const m of workers) {
+      const onTeam = team.includes(m);
+      if (!onTeam && !isIdle(s, m)) continue; // don't pull people off other work
       for (const r of projects.openReqs(p)) {
-        if (!projects.qualifies(m, r) || m.skills[r.skill] >= config.MAX_SKILL_LEVEL) continue;
-        const better = { ...m, skills: { ...m.skills, [r.skill]: m.skills[r.skill] + 1 } };
-        const saved = eta - projects.eta(p, team.map(x => (x === m ? better : x)));
+        const level = m.skills[r.skill];
+        const steps = projects.qualifies(m, r) ? 1 : r.minLevel - level;
+        if (level + steps > config.MAX_SKILL_LEVEL) continue;
+        const better = { ...m, skills: { ...m.skills, [r.skill]: level + steps } };
+        const after = onTeam ? team.map(x => (x === m ? better : x)) : team.concat([better]);
+        const saved = eta - projects.eta(p, after);
         if (saved <= 0) continue;
-        const cost = staff.trainCost(m, r.skill);
-        const score = saved / (cost + (m.owner ? 0 : config.TRAIN_SALARY_RAISE * HORIZON));
-        if (!train || score > train.score) train = { e: m, skill: r.skill, saved, cost, score };
+        const cost = staff.trainPlanCost(m, r.skill, steps);
+        const score = saved / ((cost + (m.owner ? 0 : config.TRAIN_SALARY_RAISE * steps * HORIZON)) * busyFactor(s, m));
+        if (!train || score > train.score) train = { e: m, skill: r.skill, steps, saved, cost, score };
       }
     }
     for (const c of s.candidates) {
@@ -123,7 +146,7 @@
           group: 'blocked', order: 0, key: left, title: p.title, tag: "CAN'T BE DONE", severity: 'bad', sub,
           rows: missing.map(r => ({
             label: `Needs **${r.skill} ${r.minLevel}+** (${r.need - r.done} points to go). Your best is ${best(r.skill)}.`,
-            ...gapAdvice(s, fixSkillGap(s, r.skill, r.minLevel, workers)),
+            ...gapAdvice(s, fixSkillGap(s, r.skill, r.minLevel, workers), p.title),
           })),
         });
         continue;
@@ -133,13 +156,14 @@
       const team = workers.filter(e => projects.canHelp(e, p));
       const eta = projects.eta(p, team);
       if (eta <= left) continue;
-      const { train, hire } = speedUpOptions(s, p, team, eta);
+      const { train, hire } = speedUpOptions(s, p, team, eta, workers);
       const hireFirst = hire && (!train || hire.score > train.score);
       const enough = saved => (eta - saved <= left ? ', enough to make the deadline' : '');
       const lines = [], actions = [];
       const addTrain = () => {
         const l = train.e.skills[train.skill];
-        lines.push(`**Train** ${train.e.name} in ${train.skill} (${l} → ${l + 1}) for ${money(train.cost)}: saves ~${train.saved} day(s)${enough(train.saved)}.`);
+        lines.push(`**Train** ${train.e.name} in ${train.skill} (${l} → ${l + train.steps}) for ${money(train.cost)}: saves ~${train.saved} day(s)${enough(train.saved)}` +
+          `${train.steps > 1 ? `, ${train.steps} sessions, one level at a time` : ''}.${idleNote(s, train.e, p.title)}`);
         actions.push({ kind: 'train', employeeId: train.e.id, skill: train.skill, primary: !hireFirst });
       };
       const addHire = () => {
@@ -249,5 +273,5 @@
     deskLabel: e => `${e.name} · HR advice`,
   });
 
-  CFT.hrAdvisor = { hasHR, advise, urgentCount };
+  CFT.hrAdvisor = { hasHR, advise, urgentCount, idleWorkers };
 })(window.CFT);

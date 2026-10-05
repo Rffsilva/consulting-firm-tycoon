@@ -55,6 +55,12 @@
 
     const { mode, items } = hrAdvisor.advise(s);
     let html = `<div class="muted">${esc(hr.name)} reviewed your company on day ${s.day}.</div>`;
+    const idle = hrAdvisor.idleWorkers(s);
+    if (idle.length) {
+      const wages = idle.reduce((sum, e) => sum + (e.salary || 0), 0);
+      html += `<div class="muted">Idle right now: ${idle.map(e => esc(e.name)).join(', ')}${wages ? ` (${money(wages)}/mo in wages)` : ''}. ` +
+        'Training them for the skills below puts them to work.</div>';
+    }
     if (mode === 'lacking') html += '<div class="muted">You have no accepted projects, so here is where the company is lacking skills.</div>';
     if (!items.length) {
       html += mode === 'projects'

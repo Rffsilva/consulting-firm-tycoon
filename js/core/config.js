@@ -47,6 +47,9 @@
 
     // HR compares hiring and training over this many months of salary
     HR_COST_HORIZON_MONTHS: 3,
+    // Training someone who already has work pulls them off it, so HR weighs their cost this many times over an idle
+    // person's (who has nothing else to do).
+    HR_BUSY_TRAINEE_PENALTY: 1.5,
 
     LOG_LIMIT: 80,
     SAVE_KEY: 'cft-save-v1',
